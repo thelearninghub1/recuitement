@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Mail, Calendar, FileText, Phone, MapPin,
   Eye, Download, CheckCircle, XCircle, Clock, User,
-  Search, Filter, MoreVertical, Send, Archive, Trash2,
+  Search, Filter, MoreVertical, Archive, Trash2,
   ChevronDown, ChevronUp, Star, StarHalf, AlertCircle,
   Briefcase, Building, Users, ExternalLink, MessageSquare,
   FileCheck, Award, Bookmark, Share2, Loader2,
@@ -32,8 +32,7 @@ import { UPDATE_STATUS_RESET } from '../../constants/jobConstants';
 import { decreaseCvCount, getMySubscription } from '../../actions/subscriptionActions';
 import { DECREASE_CV_COUNT_RESET } from '../../constants/subscriptionConstants';
 
-// API base URL (same as in PostedJobsDashboard)
-//const API_BASE_URL = 'http://localhost:5000';
+// API base URL
 const API_BASE_URL = '';
 
 const JobApplications = () => {
@@ -80,7 +79,7 @@ const JobApplications = () => {
   const currentCvsRemaining = usageStats?.remainingCvs ?? 0;
   const monthlyLimit = usageStats?.totalCvsLimit ?? 0;
 
-  // ---------- FIXED DOWNLOAD FUNCTIONS (same as PostedJobsDashboard) ----------
+  // ---------- DOWNLOAD FUNCTIONS ----------
   const downloadFile = async (fileUrl, fileName) => {
     try {
       const token = localStorage.getItem('token');
@@ -99,86 +98,76 @@ const JobApplications = () => {
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('Failed to download file');
+      throw error;
     }
   };
 
-  const handleDownloadResume = (resume) => {
-    if (resume && resume.path) {
-      const cleanPath = resume.path.replace(/\\/g, '/');
-      const fileUrl = `${API_BASE_URL}/${cleanPath}`;
-      const fileName = resume.originalName || resume.filename || 'resume.pdf';
-      downloadFile(fileUrl, fileName);
-    } else {
-      toast.error('Resume not available');
+  // Downloads BOTH resume AND cover letter in one click, counts as 1 download
+  const handleDownloadBothDocuments = async (resume, coverLetter) => {
+    // Check if either document exists
+    if (!resume && !coverLetter) {
+      toast.error('No documents available to download');
+      return;
     }
-  };
 
-  const handleDownloadCoverLetter = (coverLetter) => {
-    if (coverLetter && coverLetter.path) {
-      const cleanPath = coverLetter.path.replace(/\\/g, '/');
-      const fileUrl = `${API_BASE_URL}/${cleanPath}`;
-      const fileName = coverLetter.originalName || coverLetter.filename || 'cover_letter.docx';
-      downloadFile(fileUrl, fileName);
-    } else {
-      toast.error('Cover letter not available');
-    }
-  };
-
-  // Wrapper that respects CV download limit
-const handleDownloadDocument = async (document, type = 'resume') => {
-  if (!document) {
-    toast.error(`${type === 'resume' ? 'Resume' : 'Cover letter'} not available`);
-    return;
-  }
-
-  if (type === 'resume') {
+    // Check CV limit
     if (currentCvsRemaining <= 0) {
       toast.error('No CV downloads remaining for this month. Please upgrade your plan or wait for next month!');
       return;
     }
 
     setDownloadLoading(true);
+    let resumeDownloaded = false;
+    let coverLetterDownloaded = false;
+
     try {
-      // 1. Download file (with authentication)
-      if (!document.path) throw new Error('No file path available');
-      const cleanPath = document.path.replace(/\\/g, '/');
-      const fileUrl = `${API_BASE_URL}/${cleanPath}`;
-      const fileName = document.originalName || document.filename || 'resume.pdf';
-      await downloadFile(fileUrl, fileName);   // defined above
-
-      // 2. Decrease CV count on backend
-      const result = await dispatch(decreaseCvCount());
-      console.log('Decrease CV result:', result); // ← check browser console
-
-      if (result?.success) {
-        toast.success(`CV downloaded! ${result.remaining} downloads remaining this month`);
-        // Manually refresh subscription data to be sure
-        await dispatch(getMySubscription());
+      // Download Resume if available
+      if (resume && resume.path) {
+        const cleanPath = resume.path.replace(/\\/g, '/');
+        const fileUrl = `${API_BASE_URL}/${cleanPath}`;
+        const fileName = resume.originalName || resume.filename || 'resume.pdf';
+        await downloadFile(fileUrl, fileName);
+        resumeDownloaded = true;
       } else {
-        // Show specific error from the action
-        const errorMsg = result?.error || 'Unknown error';
-        toast.error(`CV downloaded but failed to update count: ${errorMsg}`);
+        console.log('No resume available to download');
+      }
+
+      // Download Cover Letter if available
+      if (coverLetter && coverLetter.path) {
+        const cleanPath = coverLetter.path.replace(/\\/g, '/');
+        const fileUrl = `${API_BASE_URL}/${cleanPath}`;
+        const fileName = coverLetter.originalName || coverLetter.filename || 'cover_letter.docx';
+        await downloadFile(fileUrl, fileName);
+        coverLetterDownloaded = true;
+      } else {
+        console.log('No cover letter available to download');
+      }
+
+      // If at least one document was downloaded, decrease CV count
+      if (resumeDownloaded || coverLetterDownloaded) {
+        const result = await dispatch(decreaseCvCount());
+        console.log('Decrease CV result:', result);
+
+        if (result?.success) {
+          const downloadedMsg = [];
+          if (resumeDownloaded) downloadedMsg.push('Resume');
+          if (coverLetterDownloaded) downloadedMsg.push('Cover Letter');
+          toast.success(`${downloadedMsg.join(' & ')} downloaded! ${result.remaining} downloads remaining this month`);
+          await dispatch(getMySubscription());
+        } else {
+          const errorMsg = result?.error || 'Unknown error';
+          toast.error(`Downloaded but failed to update count: ${errorMsg}`);
+        }
+      } else {
+        toast.error('No documents were available to download');
       }
     } catch (error) {
-      console.error('Download or decrease error:', error);
+      console.error('Download error:', error);
       toast.error('Download failed: ' + (error.message || 'Please try again'));
     } finally {
       setDownloadLoading(false);
     }
-  } else {
-    // Cover letter – no limit
-    if (!document.path) {
-      toast.error('Cover letter path not available');
-      return;
-    }
-    const cleanPath = document.path.replace(/\\/g, '/');
-    const fileUrl = `${API_BASE_URL}/${cleanPath}`;
-    const fileName = document.originalName || document.filename || 'cover_letter.docx';
-    await downloadFile(fileUrl, fileName);
-    toast.success('Cover letter downloaded');
-  }
-};
+  };
   // -------------------------------------------------------------------------
 
   // Load applications on component mount
@@ -345,7 +334,6 @@ const handleDownloadDocument = async (document, type = 'resume') => {
       case 'reviewed': return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'shortlisted': return 'bg-green-100 text-green-800 border-green-300';
       case 'rejected': return 'bg-red-100 text-red-800 border-red-300';
-      case 'accepted': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
       case 'archived': return 'bg-gray-100 text-gray-800 border-gray-300';
       default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
@@ -357,7 +345,6 @@ const handleDownloadDocument = async (document, type = 'resume') => {
       case 'reviewed': return <Eye className="w-4 h-4" />;
       case 'shortlisted': return <CheckCircle className="w-4 h-4" />;
       case 'rejected': return <XCircle className="w-4 h-4" />;
-      case 'accepted': return <Award className="w-4 h-4" />;
       case 'archived': return <Archive className="w-4 h-4" />;
       default: return <AlertCircle className="w-4 h-4" />;
     }
@@ -444,7 +431,7 @@ const handleDownloadDocument = async (document, type = 'resume') => {
     );
   }
 
-  // Helper to render candidate details section (keep your original – too long to repeat, but unchanged)
+  // Helper to render candidate details section
   const renderCandidateDetails = (candidateInfo) => (
     <div className="space-y-4 sm:space-y-6">
       {/* Personal Information */}
@@ -638,7 +625,7 @@ const handleDownloadDocument = async (document, type = 'resume') => {
     </div>
   );
 
-  // Main JSX (the UI part) – unchanged except download buttons now use handleDownloadDocument
+  // Main JSX
   return (
     <div className="min-h-screen mt-16 sm:mt-20 md:mt-30 bg-gradient-to-br from-blue-50 to-indigo-50 py-4 sm:py-6 md:py-8 px-3 sm:px-4 md:px-6 lg:px-8 font-[Parkinsans]">
       <div className="max-w-7xl mx-auto">
@@ -691,14 +678,14 @@ const handleDownloadDocument = async (document, type = 'resume') => {
           </div>
           {showFilters && (
             <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
-              <div className="flex flex-wrap gap-2 sm:gap-4"><div className="w-full"><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Status</label><div className="flex flex-wrap gap-2">{['all', 'pending', 'reviewed', 'shortlisted', 'rejected', 'accepted', 'archived'].map((status) => (<button key={status} onClick={() => setStatusFilter(status)} className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${statusFilter === status ? (status === 'all' ? 'bg-[#0077BB] text-white' : getStatusColor(status)) : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}</button>))}</div></div></div>
+              <div className="flex flex-wrap gap-2 sm:gap-4"><div className="w-full"><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Status</label><div className="flex flex-wrap gap-2">{['all', 'pending', 'reviewed', 'shortlisted', 'rejected', 'archived'].map((status) => (<button key={status} onClick={() => setStatusFilter(status)} className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${statusFilter === status ? (status === 'all' ? 'bg-[#0077BB] text-white' : getStatusColor(status)) : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}</button>))}</div></div></div>
             </div>
           )}
         </div>
 
         {/* Applications Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
-          {['pending', 'reviewed', 'shortlisted', 'rejected', 'accepted', 'archived'].map((status) => {
+          {['pending', 'reviewed', 'shortlisted', 'rejected', 'archived'].map((status) => {
             const count = applications.filter(app => app.status === status).length;
             return (<div key={status} className="bg-white rounded-lg sm:rounded-xl shadow p-2 sm:p-4 text-center hover:shadow-md transition-shadow"><div className={`inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg mb-1 sm:mb-2 ${getStatusColor(status)}`}>{getStatusIcon(status)}</div><p className="text-lg sm:text-2xl font-bold text-gray-800">{count}</p><p className="text-xs sm:text-sm text-gray-600 capitalize">{status}</p></div>);
           })}
@@ -710,7 +697,6 @@ const handleDownloadDocument = async (document, type = 'resume') => {
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-6 sm:p-8 text-center"><FileCheck className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" /><h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No Applications Found</h3><p className="text-sm sm:text-base text-gray-600 mb-4">{applications.length === 0 ? "No applications received for this job yet." : "No applications match your current filters."}</p>{applications.length > 0 && (<button onClick={() => { setSearchTerm(''); setStatusFilter('all'); }} className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200 text-sm sm:text-base">Clear All Filters</button>)}</div>
           ) : (
             <>
-              <div className="bg-white rounded-lg sm:rounded-xl shadow p-3 sm:p-4"><label className="flex items-center gap-2 sm:gap-3 cursor-pointer"><input type="checkbox" checked={selectedApplications.length === filteredApplications.length && filteredApplications.length > 0} onChange={toggleSelectAll} className="w-4 h-4 sm:w-5 sm:h-5 text-[#0077BB] rounded focus:ring-[#0077BB]" /><span className="text-sm sm:text-base font-medium text-gray-700">Select all {filteredApplications.length}</span></label></div>
               {filteredApplications.map((application) => {
                 const candidateId = application.candidate?._id || application.candidate;
                 const candidate = candidateDetails[candidateId];
@@ -738,12 +724,53 @@ const handleDownloadDocument = async (document, type = 'resume') => {
                             <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
                               <div className="lg:col-span-2 space-y-4 sm:space-y-6 order-2 lg:order-1">
                                 {application.additionalInfo && (<div className="bg-gray-50 rounded-xl p-3 sm:p-4"><h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm sm:text-base"><MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />Additional Information</h4><p className="text-sm sm:text-base text-gray-700">{application.additionalInfo}</p></div>)}
-                                {isLoadingCandidate ? (<div className="flex items-center justify-center p-6 sm:p-8"><Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-[#0077BB]" /><span className="ml-2 sm:ml-3 text-sm sm:text-base text-gray-600">Loading candidate profile...</span></div>) : candidateInfo ? (<>{renderCandidateDetails(candidateInfo)}<div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4"><h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">Update Application Status</h4><div className="flex flex-wrap gap-1.5 sm:gap-2">{['pending', 'reviewed', 'shortlisted', 'rejected', 'accepted', 'archived'].map((status) => (<button key={status} onClick={() => handleStatusUpdate(application._id, status)} disabled={statusLoading || application.status === status} className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm ${application.status === status ? 'bg-[#0077BB] text-white cursor-default' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} ${statusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</button>))}</div></div></>) : (<div className="text-center p-6 sm:p-8 border border-dashed border-gray-300 rounded-xl"><User className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" /><p className="text-sm sm:text-base text-gray-600 mb-2 sm:mb-3">Candidate profile not loaded</p><button onClick={() => fetchCandidateDetails(candidateId)} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[#0077BB] text-white rounded-lg hover:bg-[#005588] transition-colors text-sm">Load Profile</button></div>)}
+                                {isLoadingCandidate ? (<div className="flex items-center justify-center p-6 sm:p-8"><Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-[#0077BB]" /><span className="ml-2 sm:ml-3 text-sm sm:text-base text-gray-600">Loading candidate profile...</span></div>) : candidateInfo ? (<>{renderCandidateDetails(candidateInfo)}<div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4"><h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">Update Application Status</h4><div className="flex flex-wrap gap-1.5 sm:gap-2">{['pending', 'reviewed', 'shortlisted', 'rejected', 'archived'].map((status) => (<button key={status} onClick={() => handleStatusUpdate(application._id, status)} disabled={statusLoading || application.status === status} className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm ${application.status === status ? 'bg-[#0077BB] text-white cursor-default' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} ${statusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</button>))}</div></div></>) : (<div className="text-center p-6 sm:p-8 border border-dashed border-gray-300 rounded-xl"><User className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" /><p className="text-sm sm:text-base text-gray-600 mb-2 sm:mb-3">Candidate profile not loaded</p><button onClick={() => fetchCandidateDetails(candidateId)} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[#0077BB] text-white rounded-lg hover:bg-[#005588] transition-colors text-sm">Load Profile</button></div>)}
                               </div>
                               <div className="space-y-3 sm:space-y-4 order-1 lg:order-2">
-                                <div className="bg-gray-50 rounded-xl p-3 sm:p-4"><h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">Application Documents</h4><div className="space-y-2 sm:space-y-3"><button onClick={() => handleDownloadDocument(application.resume, 'resume')} disabled={currentCvsRemaining <= 0 || downloadLoading} className={`w-full flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl transition-all duration-200 ${currentCvsRemaining <= 0 ? 'bg-gray-100 border border-gray-200 cursor-not-allowed opacity-60' : 'bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400'}`}><div className="flex items-center gap-2 sm:gap-3"><div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-100 rounded-lg sm:rounded-xl flex items-center justify-center">{downloadLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 animate-spin" /> : <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />}</div><div className="text-left"><p className="text-sm sm:text-base font-medium text-gray-800">Resume / CV</p><p className="text-xs text-gray-500 truncate max-w-[100px] sm:max-w-[150px]">{application.resume?.originalName || 'resume.pdf'}</p></div></div>{currentCvsRemaining <= 0 ? <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-red-500" /> : <DownloadIcon className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />}</button><button onClick={() => handleDownloadDocument(application.coverLetter, 'cover-letter')} className="w-full flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"><div className="flex items-center gap-2 sm:gap-3"><div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center"><FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div><div className="text-left"><p className="text-sm sm:text-base font-medium text-gray-800">Cover Letter</p><p className="text-xs text-gray-500 truncate max-w-[100px] sm:max-w-[150px]">{application.coverLetter?.originalName || 'cover_letter.docx'}</p></div></div><DownloadIcon className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" /></button></div></div>
-                                <div className="bg-blue-50 rounded-xl p-2 sm:p-3"><div className="flex items-center justify-between"><span className="text-xs sm:text-sm text-gray-600">CV Downloads Left</span><span className={`text-sm sm:text-base font-bold ${currentCvsRemaining <= 0 ? 'text-red-600' : 'text-[#0077BB]'}`}>{currentCvsRemaining}</span></div>{currentCvsRemaining <= 0 && (<button onClick={() => navigate('/school-membership')} className="mt-1 sm:mt-2 w-full text-xs text-center text-[#0077BB] hover:underline">Upgrade Plan →</button>)}</div>
-                                <div className="space-y-2 sm:space-y-3"><button onClick={() => { if (application.email) window.location.href = `mailto:${application.email}`; else toast.error('Email not available'); }} className="w-full flex items-center justify-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200 text-sm sm:text-base"><Send className="w-3 h-3 sm:w-4 sm:h-4" />Contact Candidate</button><button onClick={() => handleStatusUpdate(application._id, 'archived')} className="w-full flex items-center justify-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200 text-sm sm:text-base"><Archive className="w-3 h-3 sm:w-4 sm:h-4" />Archive</button></div>
+                                <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                                  <h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">Application Documents</h4>
+                                  <div className="space-y-2 sm:space-y-3">
+                                    {/* Combined Download Button - Downloads BOTH Resume & Cover Letter */}
+                                    <button 
+                                      onClick={() => handleDownloadBothDocuments(application.resume, application.coverLetter)} 
+                                      disabled={currentCvsRemaining <= 0 || downloadLoading} 
+                                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 rounded-xl transition-all duration-200 ${
+                                        currentCvsRemaining <= 0 
+                                          ? 'bg-gray-100 border border-gray-200 cursor-not-allowed opacity-60' 
+                                          : 'bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white hover:shadow-lg'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                                          {downloadLoading ? 
+                                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-white animate-spin" /> : 
+                                            <DownloadIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                                          }
+                                        </div>
+                                        <div className="text-left">
+                                          <p className="text-sm sm:text-base font-medium text-white">Download Resume And Cover Letter</p>
+                                          <p className="text-xs text-white/80 truncate max-w-[100px] sm:max-w-[150px]">
+                                            {application.resume?.originalName || 'resume.pdf'} 
+                                            {application.coverLetter && ' + cover letter'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      {currentCvsRemaining <= 0 ? 
+                                        <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-white" /> : 
+                                        <DownloadIcon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                                      }
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="bg-blue-50 rounded-xl p-2 sm:p-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs sm:text-sm text-gray-600">CV Downloads Left</span>
+                                    <span className={`text-sm sm:text-base font-bold ${currentCvsRemaining <= 0 ? 'text-red-600' : 'text-[#0077BB]'}`}>{currentCvsRemaining}</span>
+                                  </div>
+                                  {currentCvsRemaining <= 0 && (
+                                    <button onClick={() => navigate('/membership-plans')} className="mt-1 sm:mt-2 w-full text-xs text-center text-[#0077BB] hover:underline">Upgrade Plan →</button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

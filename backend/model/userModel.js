@@ -151,7 +151,6 @@ const userSchema = new mongoose.Schema({
     // Documents
     cv: {
       type: String,
-      required: function() { return this.role === 'candidate'; }
     },
     latestDegreeFiles: [String],
     

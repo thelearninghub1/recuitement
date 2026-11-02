@@ -2,7 +2,7 @@ const Job = require('../../model/jobsModel');
 const Application = require('../../model/applicationModel');
 const User = require('../../model/userModel');
 const asyncHandler = require('../../middlewares/asyncHandler');
-const sendEmail = require('../../utils/sendEmail');
+const {sendEmail , sendEmailCandidates} = require('../../utils/sendEmail');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -549,10 +549,10 @@ exports.applyForJob = asyncHandler(async (req, res) => {
   }
 
   const application = await Application.create(applicationData);
+    const school = await User.findById(job.school);
 
   // Send notification email to school
   try {
-    const school = await User.findById(job.school);
     
     await sendEmail({
       email: school.email,
@@ -568,19 +568,43 @@ Job Details:
 
 Candidate Details:
 - Name: ${application.fullName}
-- Email: ${application.email}
-- Phone: ${application.phoneNumber}
 - Applied Date: ${new Date().toLocaleDateString()}
 
 You can review this application in your dashboard.
 
 Best regards,
-Apex Staffing Network Team`
+The Teaching Path Team`
     });
   } catch (error) {
     console.log('Notification email sending failed:', error.message);
   }
 
+// Send confirmation email to candidate
+try {
+    await sendEmailCandidates({
+      email: application.email, // or req.user.email
+      subject: `Application Received - ${job.jobTitle}`,
+      message: `Dear ${application.fullName},
+
+Thank you for applying for the ${job.jobTitle} position.
+
+Your application has been received successfully. Here are the details:
+
+Application Details:
+- Job Title: ${job.jobTitle}
+- Job ID: ${job.jobId}
+- School: ${school.schoolData.schoolName}
+- Applied Date: ${new Date().toLocaleDateString()}
+- Application Status: Pending Review
+
+We will review your application and get back to you soon. You can track your application status in your dashboard.
+
+Best regards,
+The Teaching Path Team`
+    });
+  } catch (error) {
+    console.log('Candidate confirmation email sending failed:', error.message);
+  }
   res.status(201).json({
     success: true,
     message: 'Application submitted successfully',
@@ -647,7 +671,7 @@ Job Details:
 - Location: ${job.location}
 
 Best regards,
-Apex Staffing Network Team`;
+The Teaching Path Team`;
           break;
         
         case 'selected':
@@ -664,7 +688,7 @@ Job Details:
 - Location: ${job.location}
 
 Best regards,
-Apex Staffing Network Team`;
+The Teaching Path Team`;
           break;
         
         case 'rejected':
@@ -678,7 +702,7 @@ After careful consideration, we regret to inform you that your application has n
 We appreciate your time and effort in applying and encourage you to apply for future opportunities that match your profile.
 
 Best regards,
-Apex Staffing Network Team`;
+The Teaching Path Team`;
           break;
       }
 

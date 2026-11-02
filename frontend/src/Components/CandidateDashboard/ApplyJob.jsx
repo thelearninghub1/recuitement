@@ -63,6 +63,43 @@ const Dashboard = () => {
     curriculum: ["American Curriculum", "British Curriculum", "IB", "IGCSE", "Cambridge", "Early Years Foundation Stage", "Online Teaching", "International Curriculum", "Arabic Curriculum"]
   };
 
+  // Helper function to get display value for curriculum
+  const getCurriculumDisplay = (curriculum) => {
+    if (!curriculum) return 'Not specified';
+    // If it's "Other", return the job's curriculumOther value if available
+    if (curriculum === 'Other' && selectedJob?.curriculumOther) {
+      return selectedJob.curriculumOther;
+    }
+    // If it's an array, join them
+    if (Array.isArray(curriculum)) {
+      return curriculum.map(item => {
+        if (item === 'Other' && selectedJob?.curriculumOther) {
+          return selectedJob.curriculumOther;
+        }
+        return item;
+      });
+    }
+    return curriculum;
+  };
+
+  // Helper function to get display value for any "Other" field
+  const getDisplayValue = (value, otherValue) => {
+    if (!value) return 'Not specified';
+    if (value === 'Other' && otherValue) {
+      return otherValue;
+    }
+    return value;
+  };
+
+  // Helper function to format job title with "Other" handling
+  const getJobTitleDisplay = (job) => {
+    if (!job) return '';
+    if (job.jobTitle === 'Other' && job.jobTitleOther) {
+      return job.jobTitleOther;
+    }
+    return job.jobTitle || job.title;
+  };
+
   // Fetch all jobs on component mount
   useEffect(() => {
     dispatch(getAllJobs());
@@ -71,46 +108,50 @@ const Dashboard = () => {
   // Handle jobs data when it loads
   useEffect(() => {
     if (allJobs && allJobs.length > 0) {
-     const formattedJobs = allJobs.map(job => ({
-  id: job._id,
-  title: job.jobTitle === 'Other' && job.jobTitleOther 
-    ? job.jobTitleOther 
-    : job.jobTitle,
-  jobTitle: job.jobTitle, // Keep original for reference
-  jobTitleOther: job.jobTitleOther, // Keep for reference
-  company: job.school?.name || "School in Saudi Arabia",
-  country: job.country || "Saudi Arabia",
-  city: job.city || "Riyadh",
-  type: job.jobType || "Full Time",
-  workMode: job.workMode || "On-site",
-  experience: job.experienceRequired || "3-5 years",
-  salary: job.minSalary && job.maxSalary 
-    ? `${job.minSalary.toLocaleString()} - ${job.maxSalary.toLocaleString()} SAR` 
-    : "Negotiable",
-  postedDate: job.createdAt ? new Date(job.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-  deadline: job.applicationDeadline ? new Date(job.applicationDeadline).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-  curriculum: Array.isArray(job.curriculumRequired) ? job.curriculumRequired : [job.curriculumRequired || "International Curriculum"],
-  description: job.jobDescription || "Teaching position in Saudi Arabia",
-  requirements: [
-    `Experience: ${job.experienceRequired || "3-5 years"}`,
-    `Qualification: ${job.minQualification || "Bachelor's Degree"}`,
-    job.degreeMajor ? `Major: ${job.degreeMajor}` : "Relevant degree required",
-    job.englishCertRequired ? `English Certification: ${job.englishCertRequired}` : "English proficiency required",
-    job.teachingLicenseRequired ? `Teaching License: ${job.teachingLicenseRequired}` : "Teaching certification required"
-  ].filter(Boolean),
-  benefits: [
-    "Competitive tax-free salary",
-    "Housing allowance",
-    "Medical insurance",
-    "Annual flight tickets",
-    "Professional development opportunities"
-  ],
-  companyInfo: {
-    size: "500-1000 students",
-    type: "International School",
-    established: "2000"
-  }
-}));
+      const formattedJobs = allJobs.map(job => ({
+        id: job._id,
+        title: getJobTitleDisplay(job),
+        jobTitle: job.jobTitle,
+        jobTitleOther: job.jobTitleOther,
+        company: job.school?.name || "School in Saudi Arabia",
+        country: job.country || "Saudi Arabia",
+        city: job.city || "Riyadh",
+        type: job.jobType || "Full Time",
+        workMode: job.workMode || "On-site",
+        experience: job.experienceRequired || "3-5 years",
+        salary: job.minSalary && job.maxSalary 
+          ? `${job.minSalary.toLocaleString()} - ${job.maxSalary.toLocaleString()} SAR` 
+          : "Negotiable",
+        postedDate: job.createdAt ? new Date(job.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        deadline: job.applicationDeadline ? new Date(job.applicationDeadline).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        curriculum: Array.isArray(job.curriculumRequired) 
+          ? job.curriculumRequired.map(c => 
+              c === 'Other' && job.curriculumOther ? job.curriculumOther : c
+            )
+          : [job.curriculumRequired || "International Curriculum"],
+        curriculumOriginal: job.curriculumRequired,
+        curriculumOther: job.curriculumOther,
+        description: job.jobDescription || "Teaching position in Saudi Arabia",
+        requirements: [
+          `Experience: ${job.experienceRequired || "3-5 years"}`,
+          `Qualification: ${getDisplayValue(job.minQualification, job.minQualificationOther)}`,
+          job.degreeMajor ? `Major: ${job.degreeMajor}` : "Relevant degree required",
+          job.englishCertRequired ? `English Certification: ${getDisplayValue(job.englishCertRequired, job.englishCertRequiredOther)}` : "English proficiency required",
+          job.teachingLicenseRequired ? `Teaching License: ${getDisplayValue(job.teachingLicenseRequired, job.teachingLicenseRequiredOther)}` : "Teaching certification required"
+        ].filter(Boolean),
+        benefits: [
+          "Competitive tax-free salary",
+          "Housing allowance",
+          "Medical insurance",
+          "Annual flight tickets",
+          "Professional development opportunities"
+        ],
+        companyInfo: {
+          size: "500-1000 students",
+          type: "International School",
+          established: "2000"
+        }
+      }));
       
       setJobs(formattedJobs);
       setFilteredJobs(formattedJobs);
@@ -143,9 +184,8 @@ const Dashboard = () => {
       setResumeFile(null);
       setCoverLetterFile(null);
       dispatch({
-        type:APPLY_JOB_RESET
-      })
-
+        type: APPLY_JOB_RESET
+      });
     }
     if (applyError) {
       toast.error(applyError);
@@ -166,7 +206,8 @@ const Dashboard = () => {
       result = result.filter(job =>
         job.title.toLowerCase().includes(term) ||
         job.company.toLowerCase().includes(term) ||
-        job.city.toLowerCase().includes(term)
+        job.city.toLowerCase().includes(term) ||
+        job.curriculum.some(c => c.toLowerCase().includes(term))
       );
     }
 
@@ -289,39 +330,37 @@ const Dashboard = () => {
     });
   };
 
- 
-
   const handleApplyClick = (job) => {
     console.log('Applying for job:', job);
     console.log('Job ID:', job.id || job._id);
     
     if (!user) {
-        toast.error("Please login to apply for jobs");
-        navigate('/teacher-login');
-        return;
+      toast.error("Please login to apply for jobs");
+      navigate('/teacher-login');
+      return;
     }
     
     setSelectedJobForApplication(job);
     setShowApplicationModal(true);
-};
+  };
 
-const handleApplicationSubmit = async () => {
+  const handleApplicationSubmit = async () => {
     if (!resumeFile) {
-        toast.error("Please upload your resume to apply for this position.");
-        return;
+      toast.error("Please upload your resume to apply for this position.");
+      return;
     }
 
     if (!selectedJobForApplication) {
-        toast.error("No job selected for application");
-        return;
+      toast.error("No job selected for application");
+      return;
     }
 
     // Get the job ID from selectedJobForApplication
     const jobId = selectedJobForApplication.id || selectedJobForApplication._id;
     
     if (!jobId) {
-        toast.error("Invalid job data - missing job ID");
-        return;
+      toast.error("Invalid job data - missing job ID");
+      return;
     }
 
     // Prepare form data
@@ -334,25 +373,25 @@ const handleApplicationSubmit = async () => {
     // Add phone number if available
     const phoneInput = document.querySelector('input[type="tel"]');
     if (phoneInput?.value) {
-        formData.append('phoneNumber', phoneInput.value);
+      formData.append('phoneNumber', phoneInput.value);
     }
     
     // Add current location if available
     const locationInput = document.querySelector('input[placeholder*="City"]');
     if (locationInput?.value) {
-        formData.append('currentLocation', locationInput.value);
+      formData.append('currentLocation', locationInput.value);
     }
     
     // Add files
     formData.append('resume', resumeFile);
     if (coverLetterFile) {
-        formData.append('coverLetter', coverLetterFile);
+      formData.append('coverLetter', coverLetterFile);
     }
     
     // Add additional information if available
     const additionalInfo = document.querySelector('textarea');
     if (additionalInfo?.value) {
-        formData.append('additionalInfo', additionalInfo.value);
+      formData.append('additionalInfo', additionalInfo.value);
     }
     
     // Debug log
@@ -361,7 +400,7 @@ const handleApplicationSubmit = async () => {
     
     // Dispatch application action with jobId as first parameter
     dispatch(applyForJob(jobId, formData));
-};
+  };
 
   const handleFileChange = (setFileFunction) => (event) => {
     const file = event.target.files[0];
@@ -408,23 +447,24 @@ const handleApplicationSubmit = async () => {
     }
   };
 
-  // Application Modal Component
+  // Application Modal Component - FIXED VERSION
   const ApplicationModal = () => {
     if (!showApplicationModal || !selectedJobForApplication) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[70vh] overflow-hidden transform transition-all duration-300 scale-100">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 transition-all duration-300">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100 relative">
           {/* Modal Header */}
           <div className="bg-gradient-to-r from-[#0077BB] to-[#00AEEF] p-8 text-white relative">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h2 className="text-3xl font-bold mb-2">Apply for Position</h2>
-<p className="text-blue-100 text-xl font-medium mb-1">
-  {selectedJobForApplication.jobTitle === 'Other' && selectedJobForApplication.jobTitleOther 
-    ? selectedJobForApplication.jobTitleOther 
-    : selectedJobForApplication.title}
-</p>                <p className="text-blue-200">{selectedJobForApplication.company}</p>
+                <p className="text-blue-100 text-xl font-medium mb-1">
+                  {selectedJobForApplication.jobTitle === 'Other' && selectedJobForApplication.jobTitleOther 
+                    ? selectedJobForApplication.jobTitleOther 
+                    : selectedJobForApplication.title}
+                </p>
+                <p className="text-blue-200">{selectedJobForApplication.company}</p>
                 <div className="flex items-center gap-4 mt-4 text-blue-100">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
@@ -438,7 +478,7 @@ const handleApplicationSubmit = async () => {
               </div>
               <button
                 onClick={() => setShowApplicationModal(false)}
-                className="p-3 hover:bg-white/20 rounded-2xl transition-all duration-200 hover:scale-110 ml-4"
+                className="p-3 hover:bg-white/20 rounded-2xl transition-all duration-200 hover:scale-110 ml-4 flex-shrink-0"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -482,7 +522,6 @@ const handleApplicationSubmit = async () => {
                         type="tel"
                         placeholder="+966 XXX XXX XXX"
                         defaultValue={user?.profile?.mobile || ""}
-
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0077BB] focus:border-transparent transition-all duration-200"
                       />
                     </div>
@@ -491,7 +530,8 @@ const handleApplicationSubmit = async () => {
                       <input
                         type="text"
                         placeholder="City, Saudi Arabia"
-                        defaultValue={`${user?.candidateData?.currentCity || ''}, ${user?.candidateData?.countryOfResidence || ''}`.trim()}                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0077BB] focus:border-transparent transition-all duration-200"
+                        defaultValue={`${user?.candidateData?.currentCity || ''}, ${user?.candidateData?.countryOfResidence || ''}`.trim()}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0077BB] focus:border-transparent transition-all duration-200"
                       />
                     </div>
                   </div>
@@ -630,6 +670,23 @@ const handleApplicationSubmit = async () => {
                         <p className="font-semibold text-gray-800">{selectedJobForApplication.salary}</p>
                       </div>
                     </div>
+                    {selectedJobForApplication.curriculum && selectedJobForApplication.curriculum.length > 0 && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center mt-1">
+                          <Bookmark className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Curriculum</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedJobForApplication.curriculum.map((curr, index) => (
+                              <span key={index} className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs">
+                                {curr}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -992,10 +1049,8 @@ const handleApplicationSubmit = async () => {
                         </button>
                       </div>
                       <h2 className="text-2xl font-bold text-gray-800 mb-2">
-  {selectedJob.jobTitle === 'Other' && selectedJob.jobTitleOther 
-    ? selectedJob.jobTitleOther 
-    : selectedJob.title}
-</h2>
+                        {getJobTitleDisplay(selectedJob)}
+                      </h2>
                       <p className="text-xl text-gray-600 mb-4">{selectedJob.company}</p>
                       
                       <div className="flex flex-wrap gap-4 text-sm text-gray-600">
@@ -1050,17 +1105,13 @@ const handleApplicationSubmit = async () => {
                       </button>
                     ) : (
                       <button
-    onClick={() => handleApplyClick(selectedJob)}
-    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
->
-    <Briefcase className="w-5 h-5" />
-    Apply Now
-</button>
+                        onClick={() => handleApplyClick(selectedJob)}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+                      >
+                        <Briefcase className="w-5 h-5" />
+                        Apply Now
+                      </button>
                     )}
-                    <button className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200">
-                      <ExternalLink className="w-5 h-5" />
-                      View Company
-                    </button>
                   </div>
                 </div>
 
@@ -1197,10 +1248,8 @@ const handleApplicationSubmit = async () => {
                             </div>
                             <div className="flex-1">
                               <h3 className="text-lg font-semibold text-gray-800 mb-1">
-  {job.jobTitle === 'Other' && job.jobTitleOther 
-    ? job.jobTitleOther 
-    : job.title}
-</h3>
+                                {getJobTitleDisplay(job)}
+                              </h3>
                               <p className="text-gray-600 mb-2">{job.company}</p>
                               
                               <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-2">

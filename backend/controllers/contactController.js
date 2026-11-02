@@ -1,4 +1,4 @@
-const sendEmail = require('../utils/sendEmail');
+const {sendEmail} = require('../utils/sendEmail');
 
 // @desc    Submit contact form
 // @route   POST /api/contact
@@ -17,7 +17,7 @@ exports.submitContactForm = async (req, res) => {
 
     // Send email to admin - Use 'message' field instead of 'html'
     await sendEmail({
-      email: 'ithelearninghub@gmail.com',
+      email: 'info@theteachingpath.com',
       subject: `New Contact Form Message from ${name}`,
       message: `
 New Contact Form Submission

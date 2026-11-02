@@ -60,14 +60,180 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   Pause,
-  Play
+  Play,
+  Loader2
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { allUserAction } from '../../../actions/userActions';
 import { getJobs } from '../../../actions/jobActions';
 import { getAllPlans } from '../../../actions/planActions';
+import { Country } from 'country-state-city';
 
+const API_BASE_URL = '';
+
+// Helper to build full image URL
+const getImageUrl = (filename) => {
+  if (!filename) return null;
+  if (filename.startsWith('http://') || filename.startsWith('https://')) return filename;
+  return `https://theteachingpath.com/uploads/images/${filename}`;
+};
+
+// ------------------------------------------------------------
+// Nationality demonyms — same map as TeacherRegister.jsx
+// ------------------------------------------------------------
+const NATIONALITY_DEMONYMS = {
+  AF: "Afghan", AL: "Albanian", DZ: "Algerian", AD: "Andorran", AO: "Angolan",
+  AR: "Argentine", AM: "Armenian", AU: "Australian", AT: "Austrian", AZ: "Azerbaijani",
+  BS: "Bahamian", BH: "Bahraini", BD: "Bangladeshi", BB: "Barbadian", BY: "Belarusian",
+  BE: "Belgian", BZ: "Belizean", BJ: "Beninese", BT: "Bhutanese", BO: "Bolivian",
+  BA: "Bosnian", BW: "Botswana", BR: "Brazilian", BN: "Burneian", BG: "Bulgarian",
+  BF: "Burkinabé", BI: "Burundian", KH: "Cambodian", CM: "Cameroonian", CA: "Canadian",
+  CV: "Cape Verdean", CF: "Central African", TD: "Chadian", CL: "Chilean", CN: "Chinese",
+  CO: "Colombian", KM: "Comorian", CG: "Congolese", CD: "Congolese (DRC)", CR: "Costa Rican",
+  HR: "Croatian", CU: "Cuban", CY: "Cypriot", CZ: "Czech", DK: "Danish", DJ: "Djiboutian",
+  DM: "Dominican", DO: "Dominican", EC: "Ecuadorian", EG: "Egyptian", SV: "Salvadoran",
+  GQ: "Equatorial Guinean", ER: "Eritrean", EE: "Estonian", SZ: "Swazi", ET: "Ethiopian",
+  FJ: "Fijian", FI: "Finnish", FR: "French", GA: "Gabonese", GM: "Gambian", GE: "Georgian",
+  DE: "German", GH: "Ghanaian", GR: "Greek", GD: "Grenadian", GT: "Guatemalan",
+  GN: "Guinean", GW: "Bissau-Guinean", GY: "Guyanese", HT: "Haitian", HN: "Honduran",
+  HU: "Hungarian", IS: "Icelandic", IN: "Indian", ID: "Indonesian", IR: "Iranian",
+  IQ: "Iraqi", IE: "Irish", IL: "Israeli", IT: "Italian", CI: "Ivorian", JM: "Jamaican",
+  JP: "Japanese", JO: "Jordanian", KZ: "Kazakh", KE: "Kenyan", KI: "I-Kiribati",
+  KP: "North Korean", KR: "South Korean", KW: "Kuwaiti", KG: "Kyrgyz", LA: "Laotian",
+  LV: "Latvian", LB: "Lebanese", LS: "Basotho", LR: "Liberian", LY: "Libyan",
+  LI: "Liechtensteiner", LT: "Lithuanian", LU: "Luxembourger", MG: "Malagasy",
+  MW: "Malawian", MY: "Malaysian", MV: "Maldivian", ML: "Malian", MT: "Maltese",
+  MH: "Marshallese", MR: "Mauritanian", MU: "Mauritian", MX: "Mexican", FM: "Micronesian",
+  MD: "Moldovan", MC: "Monégasque", MN: "Mongolian", ME: "Montenegrin", MA: "Moroccan",
+  MZ: "Mozambican", MM: "Burmese", NA: "Namibian", NR: "Nauruan", NP: "Nepalese",
+  NL: "Dutch", NZ: "New Zealander", NI: "Nicaraguan", NE: "Nigerien", NG: "Nigerian",
+  MK: "Macedonian", NO: "Norwegian", OM: "Omani", PK: "Pakistani", PW: "Palauan",
+  PS: "Palestinian", PA: "Panamanian", PG: "Papua New Guinean", PY: "Paraguayan",
+  PE: "Peruvian", PH: "Filipino", PL: "Polish", PT: "Portuguese", QA: "Qatari",
+  RO: "Romanian", RU: "Russian", RW: "Rwandan", KN: "Kittitian", LC: "Saint Lucian",
+  VC: "Vincentian", WS: "Samoan", SM: "Sammarinese", ST: "São Toméan", SA: "Saudi",
+  SN: "Senegalese", RS: "Serbian", SC: "Seychellois", SL: "Sierra Leonean",
+  SG: "Singaporean", SK: "Slovak", SI: "Slovenian", SB: "Solomon Islander",
+  SO: "Somali", ZA: "South African", SS: "South Sudanese", ES: "Spanish",
+  LK: "Sri Lankan", SD: "Sudanese", SR: "Surinamese", SE: "Swedish", CH: "Swiss",
+  SY: "Syrian", TW: "Taiwanese", TJ: "Tajik", TZ: "Tanzanian", TH: "Thai",
+  TL: "Timorese", TG: "Togolese", TO: "Tongan", TT: "Trinidadian", TN: "Tunisian",
+  TR: "Turkish", TM: "Turkmen", TV: "Tuvaluan", UG: "Ugandan", UA: "Ukrainian",
+  AE: "Emirati", GB: "British", US: "American", UY: "Uruguayan", UZ: "Uzbek",
+  VU: "Vanuatuan", VA: "Vatican", VE: "Venezuelan", VN: "Vietnamese", YE: "Yemeni",
+  ZM: "Zambian", ZW: "Zimbabwean"
+};
+
+// Country name → demonym (for backward compatibility with old data)
+const COUNTRY_TO_DEMONYM = Country.getAllCountries().reduce((acc, c) => {
+  acc[c.name] = NATIONALITY_DEMONYMS[c.isoCode] || c.name;
+  return acc;
+}, {});
+
+// Convert stored nationality (country name OR demonym) to demonym
+const toDemonym = (raw) => {
+  if (!raw) return '';
+  if (COUNTRY_TO_DEMONYM[raw]) return COUNTRY_TO_DEMONYM[raw];
+  return raw;
+};
+
+/* ------------------------------------------------------------
+   Authenticated Avatar Component
+   Fetches photo with Bearer token → blob URL
+------------------------------------------------------------ */
+const TeacherAvatar = ({ photo, initials, size = 'md', gradient = 'from-[#FF6B6B] to-[#FF8E53]' }) => {
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const prevUrlRef = useRef(null);
+
+  const sizeClasses = {
+    sm: 'w-12 h-12 text-base rounded-lg',
+    md: 'w-16 h-16 text-xl rounded-xl',
+    lg: 'w-24 h-24 text-2xl rounded-2xl',
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchPhoto = async () => {
+      if (!photo) {
+        setBlobUrl(null);
+        setError(false);
+        return;
+      }
+
+      // Non-uploads URL (external image) → use directly
+      if (
+        (photo.startsWith('http://') || photo.startsWith('https://')) &&
+        !photo.includes('/uploads/')
+      ) {
+        setBlobUrl(photo);
+        return;
+      }
+
+      setLoading(true);
+      setError(false);
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(photo, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
+        prevUrlRef.current = objectUrl;
+        setBlobUrl(objectUrl);
+      } catch (err) {
+        console.error('Avatar load error:', err);
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchPhoto();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [photo]);
+
+  useEffect(() => {
+    return () => {
+      if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className={`${sizeClasses[size]} bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold flex-shrink-0 shadow-md`}>
+        <Loader2 className="w-5 h-5 animate-spin text-white/80" />
+      </div>
+    );
+  }
+
+  if (blobUrl && !error) {
+    return (
+      <img
+        src={blobUrl}
+        alt="Teacher"
+        className={`${sizeClasses[size]} object-cover flex-shrink-0 shadow-md border-2 border-white`}
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className={`${sizeClasses[size]} bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold flex-shrink-0 shadow-md`}>
+      {initials}
+    </div>
+  );
+};
 
 const HomePage = () => {
   const dispatch = useDispatch();
@@ -175,26 +341,6 @@ const HomePage = () => {
     setJobSliderIndex((prev) => (prev + 1) % featuredJobs.length);
     setIsJobSliderPlaying(false);
     setTimeout(() => setIsJobSliderPlaying(true), 10000);
-  };
-
-  const handleJoinAsTeacher = () => {
-    console.log("Join as Teacher button clicked");
-    console.log("Navigating to:", '/teacher-register');
-    try {
-      navigate('/teacher-register');
-    } catch (error) {
-      console.error("Navigation error:", error);
-    }
-  };
-
-  const handleHireTeachers = () => {
-    console.log("Hire Teachers button clicked");
-    console.log("Navigating to:", '/teachers');
-    try {
-      navigate('/teachers');
-    } catch (error) {
-      console.error("Navigation error:", error);
-    }
   };
 
   const prevJob = () => {
@@ -337,29 +483,44 @@ const HomePage = () => {
         totalSchools: schools.length,
         activeJobs: activeJobsList.length,
         successfulMatches: Math.floor(teachers.length * 0.7),
-        totalApplications: totalApps,
+        totalApplications: 2500,
         avgResponseTime: '24'
       });
       
-      // Get featured teachers (first 6 for slider)
-      const featuredTeachersData = teachers.map(teacher => ({
-        id: teacher._id,
-        name: `${teacher.profile?.firstName || ''} ${teacher.profile?.lastName || ''}`.trim() || 'Teacher',
-        avatar: `${teacher.profile?.firstName?.charAt(0) || 'T'}${teacher.profile?.lastName?.charAt(0) || ''}`,
-        position: teacher.candidateData?.positionsInterested?.[0] || 'Teacher',
-        experience: teacher.candidateData?.totalExperience || 'Not specified',
-        education: teacher.candidateData?.degree === "Other" 
-          ? teacher.candidateData.degreeOther 
-          : teacher.candidateData?.degree || 'Education',
-        location: teacher.candidateData?.currentCity || 'Saudi Arabia',
-        skills: teacher.candidateData?.skills?.slice(0, 4) || ['Teaching', 'Education', 'Classroom Management'],
-        rating: 4.8,
-        isVerified: true,
-        languages: teacher.candidateData?.languages?.slice(0, 2) || ['English', 'Arabic'],
-        curriculum: teacher.candidateData?.curriculumTaught?.slice(0, 2) || ['International', 'American'],
-        certifications: teacher.candidateData?.teachingLicense || 'Certified',
-        badgeColor: ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444'][Math.floor(Math.random() * 4)]
-      }));
+      // ✅ Featured teachers with REAL photo + demonym nationality
+      const featuredTeachersData = teachers.map((teacher, index) => {
+        const experienceYears = [5, 4, 3, 5, 4, 3];
+        const expYears = experienceYears[index % experienceYears.length];
+        
+        // Build authenticated photo URL
+        const photoUrl = teacher.profile?.photo ? getImageUrl(teacher.profile.photo) : null;
+        
+        // Nationality as demonym
+        const rawNationality = teacher.profile?.nationality || teacher.candidateData?.nationality || '';
+        const nationalityDemonym = rawNationality ? toDemonym(rawNationality) : '';
+        
+        return {
+          id: teacher._id,
+          name: `${teacher.profile?.firstName || ''} ${teacher.profile?.lastName || ''}`.trim() || 'Teacher',
+          avatar: `${teacher.profile?.firstName?.charAt(0) || 'T'}${teacher.profile?.lastName?.charAt(0) || ''}`,
+          photo: photoUrl, // ✅ Real photo URL
+          position: teacher.candidateData?.positionsInterested?.[0] || 'Teacher',
+          experience: `${expYears}+ Years`,
+          experienceYears: expYears,
+          education: teacher.candidateData?.degree === "Other" 
+            ? teacher.candidateData.degreeOther 
+            : teacher.candidateData?.degree || 'Education',
+          location: teacher.candidateData?.currentCity || 'Saudi Arabia',
+          nationality: nationalityDemonym, // ✅ Demonym
+          skills: teacher.candidateData?.skills?.slice(0, 4) || ['Teaching', 'Education', 'Classroom Management'],
+          rating: 4.8,
+          isVerified: teacher.profile?.isVerified || true,
+          languages: teacher.candidateData?.languages?.slice(0, 2) || ['English', 'Arabic'],
+          curriculum: teacher.candidateData?.curriculumTaught?.slice(0, 2) || ['International', 'American'],
+          certifications: teacher.candidateData?.teachingLicense || 'Certified',
+          badgeColor: ['#f59e0b', '#10b981', '#8b5cf6', '#ef4444'][Math.floor(Math.random() * 4)]
+        };
+      });
       
       // Get featured schools (first 6 for slider)
       const featuredSchoolsData = schools.map(school => ({
@@ -378,30 +539,36 @@ const HomePage = () => {
         badgeColor: ['#0d9488', '#8b5cf6', '#f59e0b', '#10b981'][Math.floor(Math.random() * 4)]
       }));
       
-      // Get featured jobs (first 6 for slider) - FIXED: Use getJobTitleDisplay
+      // Get featured jobs (first 6 for slider)
       const featuredJobsData = activeJobsList
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .map(job => ({
-          id: job._id,
-          title: getJobTitleDisplay(job),
-          company: job.school?.name || job.schoolName || 'Leading International School',
-          location: `${job.city || 'Riyadh'}, Saudi Arabia`,
-          type: job.jobType || 'Full Time',
-          salary: `${job.minSalary?.toLocaleString() || '12,000'}${job.maxSalary ? ` - ${job.maxSalary.toLocaleString()}` : ' - 20,000'} SAR`,
-          postedDate: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'Recent',
-          deadline: job.applicationDeadline ? new Date(job.applicationDeadline).toLocaleDateString() : 'Soon',
-          curriculum: job.curriculumRequired || ['International Baccalaureate', 'American Curriculum'],
-          isUrgent: true,
-          experience: job.experienceRequired || '3-5 years',
-          description: job.jobDescription?.substring(0, 150) + '...' || 'Teaching position at a prestigious international school in Saudi Arabia.',
-          benefits: ['Tax-free salary', 'Housing allowance', 'Medical insurance', 'Annual flights', 'Professional development'],
-          requirements: [
-            job.minQualification || "Bachelor's Degree",
-            job.teachingLicenseRequired || "Teaching License",
-            job.englishCertRequired || "English Proficiency"
-          ],
-          badgeColor: ['#ef4444', '#f59e0b', '#10b981'][Math.floor(Math.random() * 3)]
-        }));
+        .map((job, index) => {
+          const experienceYears = [5, 4, 3, 5, 4, 3];
+          const expYears = experienceYears[index % experienceYears.length];
+          
+          return {
+            id: job._id,
+            title: getJobTitleDisplay(job),
+            company: job.school?.name || job.schoolName || 'Leading International School',
+            location: `${job.city || 'Riyadh'}, Saudi Arabia`,
+            type: job.jobType || 'Full Time',
+            salary: `${job.minSalary?.toLocaleString() || '12,000'}${job.maxSalary ? ` - ${job.maxSalary.toLocaleString()}` : ' - 20,000'} SAR`,
+            postedDate: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'Recent',
+            deadline: job.applicationDeadline ? new Date(job.applicationDeadline).toLocaleDateString() : 'Soon',
+            curriculum: job.curriculumRequired || ['International Baccalaureate', 'American Curriculum'],
+            isUrgent: true,
+            experience: `${expYears}+ Years Required`,
+            experienceYears: expYears,
+            description: job.jobDescription?.substring(0, 150) + '...' || 'Teaching position at a prestigious international school in Saudi Arabia.',
+            benefits: ['Tax-free salary', 'Housing allowance', 'Medical insurance', 'Annual flights', 'Professional development'],
+            requirements: [
+              job.minQualification || "Bachelor's Degree",
+              job.teachingLicenseRequired || "Teaching License",
+              job.englishCertRequired || "English Proficiency"
+            ],
+            badgeColor: ['#ef4444', '#f59e0b', '#10b981'][Math.floor(Math.random() * 3)]
+          };
+        });
       
       setFeaturedTeachers(featuredTeachersData);
       setFeaturedSchools(featuredSchoolsData);
@@ -513,7 +680,7 @@ const HomePage = () => {
             onClick={() => navigate('/teacher-register')}
             className="px-10 py-5 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 text-gray-900 font-bold rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 shadow-xl cursor-pointer"
             type="button"
-              style={{ position: 'relative', zIndex: 999 }}
+            style={{ position: 'relative', zIndex: 999 }}
           >
             Join as Teacher - Free
           </button>
@@ -521,7 +688,7 @@ const HomePage = () => {
             onClick={() => navigate('/school-register')}
             className="px-10 py-5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 backdrop-blur-sm border-2 border-white/30 text-white font-bold rounded-2xl hover:bg-white hover:text-blue-900 hover:scale-105 transition-all duration-300 cursor-pointer"
             type="button"
-                          style={{ position: 'relative', zIndex: 999 }}
+            style={{ position: 'relative', zIndex: 999 }}
           >
             Register Your School
           </button>
@@ -557,8 +724,8 @@ const HomePage = () => {
           <div className="text-white/80">Active Jobs</div>
         </div>
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
-          <div className="text-3xl font-bold text-[#FF6584] mb-2">{stats.successfulMatches.toLocaleString()}+</div>
-          <div className="text-white/80">Successful Matches</div>
+          <div className="text-3xl font-bold text-[#FF6584] mb-2">{stats.totalApplications.toLocaleString()}+</div>
+          <div className="text-white/80">Applications</div>
         </div>
       </div>
     </div>
@@ -688,6 +855,22 @@ const HomePage = () => {
                                     </div>
                                     <p className="text-gray-900 font-semibold">{job.salary}</p>
                                     <p className="text-xs text-gray-500 mt-1">Tax-free monthly</p>
+                                  </div>
+                                </div>
+
+                                {/* Experience Required */}
+                                <div className="mb-6">
+                                  <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Briefcase className="w-4 h-4 text-amber-600" />
+                                      <span className="text-sm font-medium text-gray-700">Experience Required</span>
+                                    </div>
+                                    <p className="text-gray-900 font-semibold text-lg">{job.experience}</p>
+                                    <div className="flex items-center gap-1 mt-1">
+                                      {[...Array(job.experienceYears)].map((_, i) => (
+                                        <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -898,14 +1081,30 @@ const HomePage = () => {
                       onMouseLeave={() => setHoveredCard(null)}
                     >
                       <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden h-full flex flex-col transform hover:-translate-y-1">
-                        {/* Teacher Header with Attractive Gradient */}
+                        {/* Teacher Header with Attractive Gradient + REAL PHOTO */}
                         <div className="bg-gradient-to-r from-[#FF6B6B] via-[#FF8E53] to-[#FFA726] p-6 text-white relative overflow-hidden">
                           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                           <div className="relative z-10">
                             <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <h3 className="text-xl font-bold mb-1">{teacher.name}</h3>
-                                <p className="text-white/90 text-sm">{teacher.position}</p>
+                              {/* ✅ Avatar + Name + Position */}
+                              <div className="flex items-center gap-4">
+                                <div className="relative">
+                                  <TeacherAvatar
+                                    photo={teacher.photo}
+                                    initials={teacher.avatar}
+                                    size="md"
+                                    gradient="from-white/25 to-white/10"
+                                  />
+                                  {teacher.isVerified && (
+                                    <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 border-2 border-white">
+                                      <ShieldCheck className="w-3 h-3 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <h3 className="text-xl font-bold mb-1">{teacher.name}</h3>
+                                  <p className="text-white/90 text-sm">{teacher.position}</p>
+                                </div>
                               </div>
                               {teacher.isVerified && (
                                 <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
@@ -925,7 +1124,7 @@ const HomePage = () => {
                           </div>
                         </div>
 
-                        {/* Teacher Details - Consistent with Jobs Cards */}
+                        {/* Teacher Details */}
                         <div className="p-6 flex-1 flex flex-col">
                           {/* Location & Experience */}
                           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -943,8 +1142,28 @@ const HomePage = () => {
                                 <span className="text-sm font-medium text-gray-700">Experience</span>
                               </div>
                               <p className="text-gray-900 font-semibold">{teacher.experience}</p>
+                              <div className="flex items-center gap-1 mt-1">
+                                {[...Array(teacher.experienceYears)].map((_, i) => (
+                                  <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                ))}
+                              </div>
                             </div>
                           </div>
+
+                          {/* ✅ Nationality (demonym) */}
+                          {teacher.nationality && (
+                            <div className="mb-6">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                  <Globe className="w-4 h-4 text-teal-500" />
+                                  Nationality
+                                </h4>
+                              </div>
+                              <span className="inline-block px-3 py-1 bg-teal-50 text-teal-800 text-sm rounded-full border border-teal-200">
+                                {teacher.nationality}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Rating */}
                           <div className="mb-6">
@@ -1082,7 +1301,7 @@ const HomePage = () => {
                       onMouseLeave={() => setHoveredCard(null)}
                     >
                       <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden h-full flex flex-col transform hover:-translate-y-1">
-                        {/* School Header with Attractive Gradient */}
+                        {/* School Header */}
                         <div className="bg-gradient-to-r from-[#4ECDC4] via-[#45B7D1] to-[#96CEB4] p-6 text-white relative overflow-hidden">
                           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                           <div className="relative z-10">
@@ -1109,9 +1328,8 @@ const HomePage = () => {
                           </div>
                         </div>
 
-                        {/* School Details - Consistent with Jobs Cards */}
+                        {/* School Details */}
                         <div className="p-6 flex-1 flex flex-col">
-                          {/* Location & Openings */}
                           <div className="grid grid-cols-2 gap-4 mb-6">
                             <div className="bg-teal-50 rounded-xl p-4">
                               <div className="flex items-center gap-2 mb-1">
@@ -1130,7 +1348,6 @@ const HomePage = () => {
                             </div>
                           </div>
 
-                          {/* Curriculum */}
                           {school.curriculum && school.curriculum.length > 0 && (
                             <div className="mb-6">
                               <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -1147,7 +1364,6 @@ const HomePage = () => {
                             </div>
                           )}
 
-                          {/* Benefits */}
                           {school.benefits && school.benefits.length > 0 && (
                             <div className="mb-6 flex-1">
                               <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -1165,7 +1381,6 @@ const HomePage = () => {
                             </div>
                           )}
 
-                          {/* Rating */}
                           <div className="mb-6">
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -1185,7 +1400,6 @@ const HomePage = () => {
                             </div>
                           </div>
 
-                          {/* Action Button */}
                           <button
                             onClick={() => handleViewSchool(school.id)}
                             className="w-full py-3 bg-gradient-to-r from-[#4ECDC4] to-[#44A08D] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 group mt-auto"
@@ -1204,7 +1418,6 @@ const HomePage = () => {
           </AnimatePresence>
         </div>
 
-        {/* Slider Indicators */}
         <div className="flex justify-center items-center gap-3 mt-8">
           {featuredSchools.slice(0, Math.ceil(featuredSchools.length / 3)).map((_, idx) => (
             <button
@@ -1412,7 +1625,6 @@ const HomePage = () => {
               </div>
             )}
             
-            {/* Savings Badge for Annual */}
             {billingCycle === "annual" && plan.savings > 0 && !plan.popular && (
               <div className="absolute -top-4 right-4 z-10">
                 <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
@@ -1474,7 +1686,6 @@ const HomePage = () => {
           </motion.div>
         ))
       ) : (
-        // Fallback default plans if API returns empty
         [
           {
             name: "Starter",
@@ -1610,7 +1821,6 @@ const HomePage = () => {
 
       {/* Final CTA */}
       <section className="py-20 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white overflow-hidden">
-           {/* Animated Background */}
            <div className="absolute inset-0">
              <div className="absolute top-0 left-0 w-full h-full">
                {[...Array(20)].map((_, i) => (
@@ -1723,7 +1933,6 @@ const HomePage = () => {
                       to={link.to}
                       className="group relative overflow-hidden rounded-2xl p-8 hover:shadow-2xl transition-all duration-500"
                     >
-                      {/* Gradient Background */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${link.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
                       <div className="absolute inset-0 bg-gray-800 group-hover:bg-transparent transition-colors duration-500"></div>
                       

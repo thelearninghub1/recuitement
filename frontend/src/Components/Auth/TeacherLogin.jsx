@@ -455,7 +455,7 @@ const TeacherLogin = () => {
                 {/* Register Link */}
                 <div className="text-center pt-6 border-t border-gray-200">
                   <p className="text-sm text-gray-600">
-                    New to Apex Staffing?{" "}
+                    New to The Teaching Path?{" "}
                     <Link
                       to="/teacher-register"
                       className="font-semibold text-[#0077BB] hover:text-[#00AEEF] transition-colors duration-200"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMyApplications, clearJobErrors } from '../../actions/jobActions';
 import { 
@@ -8,43 +8,76 @@ import {
   AlertCircle, Loader2, ArrowLeft, FileCheck, 
   DollarSign, Users, Award, Bookmark, Share2
 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 const AppliedJobs = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   
-  const { applications = [], error, loading } = useSelector((state) => state.applications);
-  const { user } = useSelector((state) => state.loginUser);
+  const { applications = [], error, loading } = useSelector((state) => state.applications || { applications: [] });
+  const { user } = useSelector((state) => state.loginUser || {});
   
-  const [filteredApplications, setFilteredApplications] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+  const [downloading, setDownloading] = useState({ resume: null, coverLetter: null });
 
-  // Fetch applications on component mount
-  useEffect(() => {
-    dispatch(getMyApplications());
+  // Use a ref to prevent multiple fetches
+  const hasFetched = useRef(false);
+
+  // Helper function to get display job title - EXACTLY like JobDetails page
+  const getJobTitleDisplay = (application) => {
+    if (!application?.job) return 'Job Title Not Available';
     
+    const job = application.job;
+    // Return in the same format as JobDetails page: "Other - French Teacher"
+    if (job.jobTitle === 'Other' && job.jobTitleOther) {
+      return `${job.jobTitle} - ${job.jobTitleOther}`;
+    }
+    // Otherwise just return the jobTitle
+    return job.jobTitle || 'Job Title Not Available';
+  };
+
+  // Fetch applications only once
+  useEffect(() => {
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      dispatch(getMyApplications());
+    }
+  }, []);
+
+  // Clear errors when component unmounts
+  useEffect(() => {
     return () => {
       dispatch(clearJobErrors());
     };
-  }, [dispatch]);
+  }, []);
 
-  // Filter and sort applications
-  useEffect(() => {
+  // Compute filtered and sorted applications using useMemo
+  const filteredApplications = useMemo(() => {
+    if (!applications || !Array.isArray(applications)) return [];
+
     let result = [...applications];
 
-    // Search filter
+    // Search filter - updated to search both jobTitle and jobTitleOther
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(app =>
-        app.job?.jobTitle?.toLowerCase().includes(term) ||
-        app.job?.company?.toLowerCase().includes(term) ||
-        app.fullName?.toLowerCase().includes(term) ||
-        app.status?.toLowerCase().includes(term)
-      );
+      result = result.filter(app => {
+        const displayTitle = getJobTitleDisplay(app).toLowerCase();
+        const jobTitle = app.job?.jobTitle?.toLowerCase() || '';
+        const jobTitleOther = app.job?.jobTitleOther?.toLowerCase() || '';
+        const company = app.job?.company?.toLowerCase() || '';
+        const fullName = app.fullName?.toLowerCase() || '';
+        const status = app.status?.toLowerCase() || '';
+        
+        return displayTitle.includes(term) ||
+               jobTitle.includes(term) ||
+               jobTitleOther.includes(term) ||
+               company.includes(term) ||
+               fullName.includes(term) ||
+               status.includes(term);
+      });
     }
 
     // Status filter
@@ -65,7 +98,7 @@ const AppliedJobs = () => {
       return 0;
     });
 
-    setFilteredApplications(result);
+    return result;
   }, [applications, searchTerm, statusFilter, sortBy]);
 
   // Handle errors
@@ -75,48 +108,75 @@ const AppliedJobs = () => {
     }
   }, [error]);
 
-  const handleDownloadResume = (application) => {
+  const handleDownloadResume = useCallback(async (application) => {
     if (!application.resume) {
       toast.error('Resume not available for download');
       return;
     }
 
-    // Create a download link for the resume
-    //const resumeUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/download/resume/${application.resume.filename}`;
-    const resumeUrl = `/api/download/resume/${application.resume.filename}`;
-    
-    // Create temporary anchor element for download
-    const link = document.createElement('a');
-    link.href = resumeUrl;
-    link.download = application.resume.originalName || 'resume.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success('Resume download started');
-  };
+    try {
+      setDownloading(prev => ({ ...prev, resume: application._id }));
+      
+      const resumeUrl = `/api/download/resume/${application.resume.filename}`;
+      
+      const response = await fetch(resumeUrl);
+      if (!response.ok) {
+        throw new Error('Failed to download resume');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = application.resume.originalName || 'resume.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Resume downloaded successfully');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download resume');
+    } finally {
+      setDownloading(prev => ({ ...prev, resume: null }));
+    }
+  }, []);
 
-  const handleDownloadCoverLetter = (application) => {
+  const handleDownloadCoverLetter = useCallback(async (application) => {
     if (!application.coverLetter) {
       toast.error('Cover letter not available for download');
       return;
     }
 
-    // Create a download link for the cover letter
-  
-   // const coverLetterUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/download/cover-letter/${application.coverLetter.filename}`;
-   const coverLetterUrl = `/api/download/cover-letter/${application.coverLetter.filename}`;
-    
-    // Create temporary anchor element for download
-    const link = document.createElement('a');
-    link.href = coverLetterUrl;
-    link.download = application.coverLetter.originalName || 'cover_letter.docx';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success('Cover letter download started');
-  };
+    try {
+      setDownloading(prev => ({ ...prev, coverLetter: application._id }));
+      
+      const coverLetterUrl = `/api/download/cover-letter/${application.coverLetter.filename}`;
+      
+      const response = await fetch(coverLetterUrl);
+      if (!response.ok) {
+        throw new Error('Failed to download cover letter');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = application.coverLetter.originalName || 'cover_letter.docx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Cover letter downloaded successfully');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download cover letter');
+    } finally {
+      setDownloading(prev => ({ ...prev, coverLetter: null }));
+    }
+  }, []);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -187,6 +247,8 @@ const AppliedJobs = () => {
     );
   }
 
+  const statusOptions = ['all', 'pending', 'reviewed', 'shortlisted', 'rejected', 'accepted'];
+
   return (
     <div className="min-h-screen mt-30 bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4 md:px-8 font-[Parkinsans]">
       <div className="max-w-7xl mx-auto">
@@ -251,7 +313,7 @@ const AppliedJobs = () => {
               <div className="mb-6">
                 <h4 className="font-medium text-gray-700 mb-3">Application Status</h4>
                 <div className="space-y-2">
-                  {['all', 'pending', 'reviewed', 'shortlisted', 'rejected', 'accepted'].map((status) => (
+                  {statusOptions.map((status) => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -359,231 +421,232 @@ const AppliedJobs = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {filteredApplications.map((application) => (
-                  <div
-                    key={application._id}
-                    className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-200"
-                  >
-                    <div className="flex flex-col lg:flex-row gap-6">
-                      {/* Job Info */}
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-1">
-                              {application.job?.jobTitle || 'Job Title Not Available'}
-                            </h3>
-                            <p className="text-gray-600 mb-2">
-                              {application.job?.company || application.job?.school?.name || 'Company Not Available'}
-                            </p>
-                            
-                            <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
-                              {application.job?.city && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-4 h-4" />
-                                  {application.job.city}, Saudi Arabia
-                                </span>
-                              )}
-                              {application.job?.jobType && (
-                                <span className="flex items-center gap-1">
-                                  <Briefcase className="w-4 h-4" />
-                                  {application.job.jobType}
-                                </span>
-                              )}
-                              {application.job?.salaryRange && (
-                                <span className="flex items-center gap-1">
-                                  <DollarSign className="w-4 h-4" />
-                                  {application.job.salaryRange}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Status Badge */}
-                          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${getStatusColor(application.status)}`}>
-                            {getStatusIcon(application.status)}
-                            <span className="font-semibold capitalize">{application.status}</span>
-                          </div>
-                        </div>
-
-                        {/* Application Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div className="p-3 bg-blue-50 rounded-xl">
-                            <p className="text-sm text-gray-600">Application Date</p>
-                            <p className="font-medium text-gray-800">{formatDate(application.appliedDate || application.createdAt)}</p>
-                          </div>
-                          <div className="p-3 bg-green-50 rounded-xl">
-                            <p className="text-sm text-gray-600">Last Updated</p>
-                            <p className="font-medium text-gray-800">{formatDate(application.updatedAt)}</p>
-                          </div>
-                        </div>
-
-                        {/* Applicant Info */}
-                        <div className="p-4 bg-gray-50 rounded-xl mb-4">
-                          <h4 className="font-semibold text-gray-800 mb-2">Your Application Details</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filteredApplications.map((application) => {
+                  // Get the display title for this application - EXACTLY like JobDetails
+                  const displayTitle = getJobTitleDisplay(application);
+                  
+                  return (
+                    <div
+                      key={application._id || application.id}                   
+                      className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-200"
+                    >
+                      <div className="flex flex-col lg:flex-row gap-6">
+                        {/* Job Info */}
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-4">
                             <div>
-                              <p className="text-sm text-gray-600">Full Name</p>
-                              <p className="font-medium text-gray-800">{application.fullName}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-600">Email</p>
-                              <p className="font-medium text-gray-800">{application.email}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-600">Phone Number</p>
-                              <p className="font-medium text-gray-800">{application.phoneNumber}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-600">Current Location</p>
-                              <p className="font-medium text-gray-800">{application.currentLocation}</p>
-                            </div>
-                          </div>
-                          {application.additionalInfo && (
-                            <div className="mt-3">
-                              <p className="text-sm text-gray-600">Additional Information</p>
-                              <p className="text-gray-700 mt-1">{application.additionalInfo}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="lg:w-64 space-y-4">
-                        {/* Documents */}
-                        <div className="bg-gray-50 rounded-xl p-4">
-                          <h4 className="font-semibold text-gray-800 mb-3">Application Documents</h4>
-                          <div className="space-y-3">
-                            {application.resume ? (
-                              <button
-                                onClick={() => handleDownloadResume(application)}
-                                className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                                    <FileText className="w-5 h-5 text-red-600" />
-                                  </div>
-                                  <div className="text-left">
-                                    <p className="font-medium text-gray-800">Resume / CV</p>
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {application.resume.originalName || 'resume.pdf'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <Download className="w-4 h-4 text-gray-500" />
-                              </button>
-                            ) : (
-                              <div className="px-4 py-3 bg-gray-100 rounded-xl text-center">
-                                <p className="text-gray-600">Resume not uploaded</p>
+                              <h3 className="text-xl font-bold text-gray-800 mb-1">
+                                {displayTitle}
+                              </h3>
+                             
+                              <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
+                                {application.job?.city && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-4 h-4" />
+                                    {application.job.city}, Saudi Arabia
+                                  </span>
+                                )}
+                                {application.job?.jobType && (
+                                  <span className="flex items-center gap-1">
+                                    <Briefcase className="w-4 h-4" />
+                                    {application.job.jobType}
+                                  </span>
+                                )}
+                                {application.job?.salaryRange && (
+                                  <span className="flex items-center gap-1">
+                                    <DollarSign className="w-4 h-4" />
+                                    {application.job.salaryRange}
+                                  </span>
+                                )}
                               </div>
-                            )}
+                            </div>
 
-                            {application.coverLetter ? (
-                              <button
-                                onClick={() => handleDownloadCoverLetter(application)}
-                                className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                    <FileText className="w-5 h-5 text-blue-600" />
-                                  </div>
-                                  <div className="text-left">
-                                    <p className="font-medium text-gray-800">Cover Letter</p>
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {application.coverLetter.originalName || 'cover_letter.docx'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <Download className="w-4 h-4 text-gray-500" />
-                              </button>
-                            ) : (
-                              <div className="px-4 py-3 bg-gray-100 rounded-xl text-center">
-                                <p className="text-gray-600">No cover letter</p>
+                            {/* Status Badge */}
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${getStatusColor(application.status)}`}>
+                              {getStatusIcon(application.status)}
+                              <span className="font-semibold capitalize">{application.status}</span>
+                            </div>
+                          </div>
+
+                          {/* Application Details */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="p-3 bg-blue-50 rounded-xl">
+                              <p className="text-sm text-gray-600">Application Date</p>
+                              <p className="font-medium text-gray-800">{formatDate(application.appliedDate || application.createdAt)}</p>
+                            </div>
+                            <div className="p-3 bg-green-50 rounded-xl">
+                              <p className="text-sm text-gray-600">Last Updated</p>
+                              <p className="font-medium text-gray-800">{formatDate(application.updatedAt)}</p>
+                            </div>
+                          </div>
+
+                          {/* Applicant Info */}
+                          <div className="p-4 bg-gray-50 rounded-xl mb-4">
+                            <h4 className="font-semibold text-gray-800 mb-2">Your Application Details</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <p className="text-sm text-gray-600">Full Name</p>
+                                <p className="font-medium text-gray-800">{application.fullName}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Email</p>
+                                <p className="font-medium text-gray-800">{application.email}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Phone Number</p>
+                                <p className="font-medium text-gray-800">{application.phoneNumber}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Current Location</p>
+                                <p className="font-medium text-gray-800">{application.currentLocation}</p>
+                              </div>
+                            </div>
+                            {application.additionalInfo && (
+                              <div className="mt-3">
+                                <p className="text-sm text-gray-600">Additional Information</p>
+                                <p className="text-gray-700 mt-1">{application.additionalInfo}</p>
                               </div>
                             )}
                           </div>
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => navigate(`/job/${application.job?._id}`)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                            View Job Details
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              // Save for later functionality
-                              toast.info('Feature coming soon!');
-                            }}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200"
-                          >
-                            <Bookmark className="w-4 h-4" />
-                            Save for Later
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Timeline / Progress Bar (for pending/reviewed status) */}
-                    {['pending', 'reviewed', 'shortlisted'].includes(application.status) && (
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <h4 className="font-semibold text-gray-800 mb-4">Application Progress</h4>
-                        <div className="flex items-center">
-                          {[
-                            { status: 'pending', label: 'Applied', icon: <Clock className="w-4 h-4" /> },
-                            { status: 'reviewed', label: 'Under Review', icon: <Eye className="w-4 h-4" /> },
-                            { status: 'shortlisted', label: 'Shortlisted', icon: <CheckCircle className="w-4 h-4" /> },
-                            { status: 'accepted', label: 'Accepted', icon: <Award className="w-4 h-4" /> }
-                          ].map((step, index) => {
-                            const isActive = step.status === application.status;
-                            const isCompleted = 
-                              ['reviewed', 'shortlisted', 'accepted'].indexOf(step.status) <= 
-                              ['pending', 'reviewed', 'shortlisted', 'accepted'].indexOf(application.status);
-                            
-                            return (
-                              <div key={step.status} className="flex-1 flex flex-col items-center relative">
-                                {/* Progress Line */}
-                                {index > 0 && (
-                                  <div className={`absolute top-4 left-0 w-1/2 h-0.5 ${
-                                    isCompleted ? 'bg-green-500' : 'bg-gray-200'
-                                  }`}></div>
-                                )}
-                                {index < 3 && (
-                                  <div className={`absolute top-4 right-0 w-1/2 h-0.5 ${
-                                    isCompleted && ['reviewed', 'shortlisted', 'accepted'].indexOf(step.status) < 2 
-                                      ? 'bg-green-500' 
-                                      : 'bg-gray-200'
-                                  }`}></div>
-                                )}
-                                
-                                {/* Step Circle */}
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 z-10 ${
-                                  isActive 
-                                    ? 'bg-[#0077BB] text-white' 
-                                    : isCompleted 
-                                    ? 'bg-green-500 text-white' 
-                                    : 'bg-gray-200 text-gray-500'
-                                }`}>
-                                  {isCompleted && !isActive ? <CheckCircle className="w-4 h-4" /> : step.icon}
+                        <div className="lg:w-64 space-y-4">
+                          {/* Documents */}
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <h4 className="font-semibold text-gray-800 mb-3">Application Documents</h4>
+                            <div className="space-y-3">
+                              {application.resume ? (
+                                <button
+                                  onClick={() => handleDownloadResume(application)}
+                                  disabled={downloading.resume === application._id}
+                                  className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                                      {downloading.resume === application._id ? (
+                                        <Loader2 className="w-5 h-5 text-red-600 animate-spin" />
+                                      ) : (
+                                        <FileText className="w-5 h-5 text-red-600" />
+                                      )}
+                                    </div>
+                                    <div className="text-left">
+                                      <p className="font-medium text-gray-800">Resume / CV</p>
+                                      <p className="text-xs text-gray-500 truncate max-w-32">
+                                        {application.resume.originalName || 'resume.pdf'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Download className="w-4 h-4 text-gray-500" />
+                                </button>
+                              ) : (
+                                <div className="px-4 py-3 bg-gray-100 rounded-xl text-center">
+                                  <p className="text-gray-600">Resume not uploaded</p>
                                 </div>
-                                
-                                {/* Step Label */}
-                                <span className={`text-xs font-medium ${
-                                  isActive ? 'text-[#0077BB]' : isCompleted ? 'text-green-600' : 'text-gray-500'
-                                }`}>
-                                  {step.label}
-                                </span>
-                              </div>
-                            );
-                          })}
+                              )}
+
+                              {application.coverLetter ? (
+                                <button
+                                  onClick={() => handleDownloadCoverLetter(application)}
+                                  disabled={downloading.coverLetter === application._id}
+                                  className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                      {downloading.coverLetter === application._id ? (
+                                        <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                                      ) : (
+                                        <FileText className="w-5 h-5 text-blue-600" />
+                                      )}
+                                    </div>
+                                    <div className="text-left">
+                                      <p className="font-medium text-gray-800">Cover Letter</p>
+                                      <p className="text-xs text-gray-500 truncate max-w-32">
+                                        {application.coverLetter.originalName || 'cover_letter.docx'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Download className="w-4 h-4 text-gray-500" />
+                                </button>
+                              ) : (
+                                <div className="px-4 py-3 bg-gray-100 rounded-xl text-center">
+                                  <p className="text-gray-600">No cover letter</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => navigate(`/job/${application.job?._id}`)}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              View Job Details
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Timeline / Progress Bar (for pending/reviewed status) */}
+                      {['pending', 'reviewed', 'shortlisted'].includes(application.status) && (
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                          <h4 className="font-semibold text-gray-800 mb-4">Application Progress</h4>
+                          <div className="flex items-center">
+                            {[
+                              { status: 'pending', label: 'Applied', icon: <Clock className="w-4 h-4" /> },
+                              { status: 'reviewed', label: 'Under Review', icon: <Eye className="w-4 h-4" /> },
+                              { status: 'shortlisted', label: 'Shortlisted', icon: <CheckCircle className="w-4 h-4" /> },
+                              { status: 'accepted', label: 'Accepted', icon: <Award className="w-4 h-4" /> }
+                            ].map((step, index) => {
+                              const isActive = step.status === application.status;
+                              const isCompleted = 
+                                ['reviewed', 'shortlisted', 'accepted'].indexOf(step.status) <= 
+                                ['pending', 'reviewed', 'shortlisted', 'accepted'].indexOf(application.status);
+                              
+                              return (
+                                <div key={`${application._id}-${step.status}`} className="flex-1 flex flex-col items-center relative">
+                                  {/* Progress Line */}
+                                  {index > 0 && (
+                                    <div className={`absolute top-4 left-0 w-1/2 h-0.5 ${
+                                      isCompleted ? 'bg-green-500' : 'bg-gray-200'
+                                    }`}></div>
+                                  )}
+                                  {index < 3 && (
+                                    <div className={`absolute top-4 right-0 w-1/2 h-0.5 ${
+                                      isCompleted && ['reviewed', 'shortlisted', 'accepted'].indexOf(step.status) < 2 
+                                        ? 'bg-green-500' 
+                                        : 'bg-gray-200'
+                                    }`}></div>
+                                  )}
+                                  
+                                  {/* Step Circle */}
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 z-10 ${
+                                    isActive 
+                                      ? 'bg-[#0077BB] text-white' 
+                                      : isCompleted 
+                                      ? 'bg-green-500 text-white' 
+                                      : 'bg-gray-200 text-gray-500'
+                                  }`}>
+                                    {isCompleted && !isActive ? <CheckCircle className="w-4 h-4" /> : step.icon}
+                                  </div>
+                                  
+                                  {/* Step Label */}
+                                  <span className={`text-xs font-medium ${
+                                    isActive ? 'text-[#0077BB]' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                                  }`}>
+                                    {step.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -115,7 +115,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 50 * 1024 * 1024 // 10MB limit
   }
 });
 
@@ -123,7 +123,7 @@ const uploadApplication = multer({
   storage: applicationStorage,
   fileFilter: applicationFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
     files: 2 // Max 2 files (resume + cover letter)
   }
 });
@@ -133,7 +133,7 @@ const uploadPaymentScreenshotMiddleware = multer({
   storage: paymentStorage,
   fileFilter: paymentFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit for screenshots
+    fileSize: 10 * 1024 * 1024 // 10MB limit for screenshots
   }
 }).single('screenshot'); // 'screenshot' is the field name for the file
 

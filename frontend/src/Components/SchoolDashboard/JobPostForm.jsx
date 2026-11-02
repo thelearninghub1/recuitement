@@ -672,69 +672,21 @@ const JobPostForm = () => {
                 </div>
               </div>
               
-              {/* Gender Field - Redesigned with card-style checkboxes */}
+             {/* Gender Field - Same height as Job ID */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender (Select all that apply)
+                  Gender
                 </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {['Male', 'Female'].map((genderOption) => {
-                    const isSelected = formData.gender?.includes(genderOption);
-                    const icons = {
-                      'Male': <User className="w-5 h-5" />,
-                      'Female': <User className="w-5 h-5" />,
-                      'Both': <UsersIcon className="w-5 h-5" />
-                    };
-                    const colors = {
-                      'Male': 'border-blue-200 hover:border-blue-400 hover:bg-blue-50',
-                      'Female': 'border-pink-200 hover:border-pink-400 hover:bg-pink-50',
-                      'Both': 'border-purple-200 hover:border-purple-400 hover:bg-purple-50'
-                    };
-                    const selectedColors = {
-                      'Male': 'border-blue-500 bg-blue-50 ring-2 ring-blue-500',
-                      'Female': 'border-pink-500 bg-pink-50 ring-2 ring-pink-500',
-                      'Both': 'border-purple-500 bg-purple-50 ring-2 ring-purple-500'
-                    };
-                  
-                    return (
-                      <label
-                        key={genderOption}
-                        className={`
-                          flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer 
-                          transition-all duration-200 
-                          ${isSelected ? selectedColors[genderOption] : colors[genderOption]}
-                          hover:shadow-md
-                        `}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleArrayChange('gender', genderOption)}
-                          className="hidden"
-                        />
-                        <div className={`${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>
-                          {icons[genderOption]}
-                        </div>
-                        <span className={`mt-2 text-sm font-medium ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
-                          {genderOption}
-                        </span>
-                        {isSelected && (
-                          <span className="mt-1 text-xs text-blue-600">✓ Selected</span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-sm text-gray-500">
-                    Selected: <span className="font-semibold text-gray-700">{formData.gender?.length || 0}</span>
-                  </p>
-                  {formData.gender?.length > 0 && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                      {formData.gender.join(' + ')}
-                    </span>
-                  )}
-                </div>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => handleInputChange('gender', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent h-[52px] text-sm"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="both">Both</option>
+                </select>
               </div>
             </div>
 

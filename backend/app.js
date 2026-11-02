@@ -47,16 +47,16 @@ app.use(cookieParser());
 
 // CORS middleware
 app.use(cors({
-  origin:'http://localhost:5173',
-  //origin:'*',
+  // origin:'http://localhost:5173',
+  origin:'*',
   credentials: true
 }));
 
 
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
@@ -87,13 +87,22 @@ app.use('/api', subscriptionRoutes);
 
        // Frontend Connect to Backend
 
- 
+ {/* 
     app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
 app.get("*",(req,res)=>{
     res.sendFile(path.resolve(__dirname, "../frontend/dist/index.html"));
 })
-  
+    */}
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+app.get("*",(req,res)=>{
+    // ✅ Do NOT send React index.html for API or upload routes
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+        return res.status(404).json({ message: 'File or route not found' });
+    }
+    res.sendFile(path.resolve(__dirname, "../frontend/dist/index.html"));
+})
    
 
 

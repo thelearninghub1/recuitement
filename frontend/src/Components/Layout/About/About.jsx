@@ -38,6 +38,8 @@ import {
 import { allUserAction } from "../../../actions/userActions";
 import { getJobs } from "../../../actions/jobActions";
 import aboutImg from "../../../assets/about.jpeg"; 
+import aboutVideo from "../../../assets/about.mp4"; 
+
 
 const About = () => {
   const navigate = useNavigate();
@@ -82,7 +84,7 @@ const About = () => {
         totalTeachers: teachers.length,
         totalSchools: schools.length,
         activeJobs: activeJobsList.length,
-        totalCities: 27 // You can make this dynamic if you have city data
+        totalCities: 27
       });
     }
   }, [users, jobs]);
@@ -92,11 +94,12 @@ const About = () => {
     return num.toLocaleString();
   };
 
-  // Team members data
+  // Team members data with about descriptions
   const teamMembers = [
     {
       name: "Hadia Ahsan",
       role: "Schools Relationship Manager",
+      about: "Gold Medalist in Technology Education with 9+ years teaching experience. Secondary Section Coordinator at The Learning Hub. Certified by Oxford University Press.",
       expertise: "Management",
       avatar: "https://i.ibb.co/SD6c2pW1/man.jpg",
       color: "from-blue-500 to-cyan-500"
@@ -104,6 +107,7 @@ const About = () => {
     {
       name: "Dr. Flora K. Ferdinand",
       role: "Recruitment Advisor",
+      about: "Educational Psychologist with 18+ years in international education. UK-educated expert in global education systems and culturally responsive teaching.",
       expertise: "Educational Psychologist",
       avatar: "https://i.ibb.co/7drMpD8j/Whats-App-Image-2026-07-01-at-12-44-12-PM.jpg",
       color: "from-purple-500 to-pink-500"
@@ -111,13 +115,15 @@ const About = () => {
     {
       name: "Aqib Javed",
       role: "Technical Lead",
+      about: "Full Stack Developer specializing in scalable platform architecture. Passionate about building innovative EdTech solutions.",
       expertise: "Platform Development",
-      avatar: "https://i.ibb.co/d4hG6mXT/abyb.jpg" ,
+      avatar: "https://i.ibb.co/d4hG6mXT/abyb.jpg",
       color: "from-emerald-500 to-teal-500"
     },
     {
       name: "Mahira Ashrafi",
       role: "Head of Success",
+      about: "Primary Coordinator with 10+ years experience. Expert in Science, Mathematics, and English curriculum design. Certified Teacher Leader.",
       expertise: "Partnership Management",
       avatar: "https://i.ibb.co/v5H17x5/ban.jpg",
       color: "from-orange-500 to-red-500"
@@ -255,28 +261,6 @@ const About = () => {
             Empowering schools and teachers through smarter, faster, and more transparent 
             recruitment — connecting talent with opportunity across Middle East.
           </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="flex flex-wrap justify-center gap-4"
-          >
-            <button 
-              onClick={handleExplorePlatform}
-              className="px-8 py-4 bg-gradient-to-r from-[#FFD700] to-[#FF9F43] text-gray-900 font-bold rounded-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-2 cursor-pointer"
-            >
-              <BookOpen className="w-5 h-5" />
-              Explore Platform
-            </button>
-            <button 
-              onClick={handleMeetTeam}
-              className="px-8 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white font-bold rounded-xl hover:bg-white hover:text-[#2C7EAD] transition-all duration-300 flex items-center gap-2 cursor-pointer"
-            >
-              <Users className="w-5 h-5" />
-              Meet Our Team
-            </button>
-          </motion.div>
         </div>
       </section>
 
@@ -310,22 +294,27 @@ const About = () => {
         </div>
       </section>
 
-      {/* Who We Are Section */}
+      {/* Who We Are Section with Video */}
       <section className="py-24 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-6 md:px-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Image Section */}
+            
+            {/* Video Section */}
             <motion.div
               initial={{ opacity: 0, x: -40 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               className="relative"
             >
-              <div className="relative z-10">
-                <img
-                  src={aboutImg}
-                  alt="About TeachingPath"
-                  className="w-full rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500"
+              <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl bg-black aspect-video flex items-center justify-center group">
+                <video
+                  src={aboutVideo}
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
                 />
               </div>
               
@@ -333,7 +322,7 @@ const About = () => {
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 2 }}
-                className="absolute -top-6 -right-6 bg-gradient-to-r from-[#FFD700] to-[#FF9F43] p-6 rounded-2xl shadow-xl"
+                className="absolute -top-6 -right-6 bg-gradient-to-r from-[#FFD700] to-[#FF9F43] p-6 rounded-2xl shadow-xl z-20"
               >
                 <Award className="w-8 h-8 text-white" />
               </motion.div>
@@ -341,67 +330,67 @@ const About = () => {
               <motion.div
                 animate={{ y: [0, 10, 0] }}
                 transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
-                className="absolute -bottom-6 -left-6 bg-gradient-to-r from-[#2C7EAD] to-[#00AEEF] p-6 rounded-2xl shadow-xl"
+                className="absolute -bottom-6 -left-6 bg-gradient-to-r from-[#2C7EAD] to-[#00AEEF] p-6 rounded-2xl shadow-xl z-20"
               >
                 <Target className="w-8 h-8 text-white" />
               </motion.div>
             </motion.div>
 
-         {/* Content Section */}
-<motion.div
-  initial={{ opacity: 0, x: 40 }}
-  whileInView={{ opacity: 1, x: 0 }}
-  viewport={{ once: true }}
->
-  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full mb-6">
-    <Sparkles className="w-4 h-4 text-blue-600" />
-    <span className="text-sm font-medium text-blue-700">Welcome to TeachingPath</span>
-  </div>
+            {/* Content Section */}
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full mb-6">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-700">Welcome to TeachingPath</span>
+              </div>
 
-  <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2 leading-tight">
-    Nida Iqbal Shah
-  </h2>
-  <p className="text-xl text-gray-700 mb-1">Founder & CEO</p>
-  <p className="text-md text-gray-500 mb-6">PGCERT Education Hertfordshire</p>
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2 leading-tight">
+                Nida Iqbal Shah
+              </h2>
+              <p className="text-xl text-gray-700 mb-1">Founder & CEO</p>
+              <p className="text-md text-gray-500 mb-6">PGCERT Education Hertfordshire</p>
 
-  <div className="space-y-6 text-gray-600 text-lg leading-relaxed">
-    <h3 className="text-2xl font-bold text-gray-900">
-      The Future of Educational Recruitment
-    </h3>
-    <p className="text-gray-500 italic">
-      Finding the right educators shouldn't be a gamble.
-    </p>
+              <div className="space-y-6 text-gray-600 text-lg leading-relaxed">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  The Future of Educational Recruitment
+                </h3>
+                <p className="text-gray-500 italic">
+                  Finding the right educators shouldn't be a gamble.
+                </p>
 
-    <p>
-      <strong className="text-gray-900">TeachingPath</strong> is an advanced HR platform built specifically for schools seeking highly qualified, rigorously scrutinized, and curriculum-ready teaching talent. We bridge the gap between premier international institutions and exceptional global educators through a secure, data-driven ecosystem.
-    </p>
+                <p>
+                  <strong className="text-gray-900">TeachingPath</strong> is an advanced HR platform built specifically for schools seeking highly qualified, rigorously scrutinized, and curriculum-ready teaching talent. We bridge the gap between premier international institutions and exceptional global educators through a secure, data-driven ecosystem.
+                </p>
 
-    <h4 className="text-xl font-semibold text-gray-900 mt-6">
-      Key Features at a Glance
-    </h4>
+                <h4 className="text-xl font-semibold text-gray-900 mt-6">
+                  Key Features at a Glance
+                </h4>
 
-    <div className="space-y-4 mt-4">
-      {[
-        "Verified Candidate Pool: Standardize your peace of mind. Every educator in our network undergoes comprehensive credential verification, strict background screening, and thorough employment history checks.",
-        "The Global Talent Advantage: Instantly tap into an elite Global Talent Network specializing in major international frameworks, including British, American, IB, and Cambridge curricula.",
-        "Professional School Profiles: Showcase your institution's unique culture, leadership, and career opportunities to attract top-tier talent that aligns with your school's vision."
-      ].map((feature, index) => (
-        <div key={index} className="flex items-start gap-3">
-          <div className="p-2 bg-green-100 rounded-lg flex-shrink-0 mt-0.5">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-          </div>
-          <span>{feature}</span>
-        </div>
-      ))}
-    </div>
+                <div className="space-y-4 mt-4">
+                  {[
+                    "Verified Candidate Pool: Standardize your peace of mind. Every educator in our network undergoes comprehensive credential verification, strict background screening, and thorough employment history checks.",
+                    "The Global Talent Advantage: Instantly tap into an elite Global Talent Network specializing in major international frameworks, including British, American, IB, and Cambridge curricula.",
+                    "Professional School Profiles: Showcase your institution's unique culture, leadership, and career opportunities to attract top-tier talent that aligns with your school's vision."
+                  ].map((feature, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg flex-shrink-0 mt-0.5">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      </div>
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
 
-    <div className="mt-8 p-6 bg-blue-50 border-l-4 border-blue-600 rounded-r-lg">
-      <p className="text-gray-700 font-medium">
-        <span className="text-blue-700 font-bold">Our Promise:</span> We strip the complexity out of institutional hiring, ensuring your classrooms are led by vetted, world-class professionals who are ready to inspire from day one.
-      </p>
-    </div>
-  </div>
-</motion.div>
+                <div className="mt-8 p-6 bg-blue-50 border-l-4 border-blue-600 rounded-r-lg">
+                  <p className="text-gray-700 font-medium">
+                    <span className="text-blue-700 font-bold">Our Promise:</span> We strip the complexity out of institutional hiring, ensuring your classrooms are led by vetted, world-class professionals who are ready to inspire from day one.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -563,75 +552,79 @@ const About = () => {
           </div>
         </div>
       </section>
-{/* Team Section */}
-<section className="py-24 bg-white">
-  <div className="max-w-7xl mx-auto px-6 md:px-20">
-    {/* Heading */}
-    <div className="text-center mb-16">
-      <h2 className="text-4xl font-bold text-gray-900 mb-4">
-        Meet Our{" "}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF6B6B] to-[#4ECDC4]">
-          Leadership
-        </span>
-      </h2>
 
-      <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-        The passionate team driving our mission forward
-      </p>
-    </div>
+      {/* Team Section */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-20">
+          {/* Heading */}
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Meet Our{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF6B6B] to-[#4ECDC4]">
+                Leadership
+              </span>
+            </h2>
 
-    {/* Team Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
-      {teamMembers.map((member, index) => (
-        <motion.div
-          key={index}
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: index * 0.1 }}
-          whileHover={{ y: -8, scale: 1.02 }}
-          className="group h-full"
-        >
-          <div className="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 h-[500px] flex flex-col">
-
-         {/* Top Section */}
-<div
-  className={`bg-gradient-to-br ${member.color} h-64 flex items-center justify-center`}
->
-  <div className="w-44 h-44 rounded-full bg-white border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
-    <img
-      src={member.avatar}
-      alt={member.name}
-      className="w-full h-full object-contain"
-    />
-  </div>
-</div>
-
-            {/* Content */}
-            <div className="flex flex-col flex-grow justify-between p-6 text-center">
-
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 h-16 flex items-center justify-center leading-tight">
-                  {member.name}
-                </h3>
-
-                <p className="text-[#2C7EAD] font-semibold text-lg mt-2">
-                  {member.role}
-                </p>
-
-                <p className="text-gray-600 text-sm mt-4 leading-relaxed">
-                  {member.expertise}
-                </p>
-              </div>
-
-            </div>
-
+            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+              The passionate team driving our mission forward
+            </p>
           </div>
-        </motion.div>
-      ))}
-    </div>
-  </div>
-</section>
+
+          {/* Team Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
+            {teamMembers.map((member, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="group h-full"
+              >
+                <div className="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 h-[560px] flex flex-col">
+
+                  {/* Top Section */}
+                  <div className={`bg-gradient-to-br ${member.color} h-64 flex items-center justify-center`}>
+                    <div className="w-44 h-44 rounded-full bg-white border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
+                      <img
+                        src={member.avatar}
+                        alt={member.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex flex-col flex-grow justify-between p-6 text-center">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 leading-tight">
+                        {member.name}
+                      </h3>
+
+                      <p className="text-[#2C7EAD] font-semibold text-lg mt-2">
+                        {member.role}
+                      </p>
+
+                      {/* Description - NEW */}
+                      <p className="text-gray-600 text-sm mt-4 leading-relaxed line-clamp-3">
+                        {member.about}
+                      </p>
+
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <p className="text-gray-500 text-xs font-medium">
+                          {member.expertise}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* CTA Section */}
       <section className="py-24 bg-gradient-to-br from-[#2C7EAD] via-[#1E5F8B] to-[#0D3B66] text-white overflow-hidden">

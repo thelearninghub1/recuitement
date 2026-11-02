@@ -3,7 +3,7 @@ const Plan = require('../model/Plan');
 const Subscription = require('../model/Subscription');
 const User = require('../model/userModel');
 const asyncHandler = require('../middlewares/asyncHandler');
-const sendEmail = require('../utils/sendEmail');
+const {sendEmail} = require('../utils/sendEmail');
 const path = require('path');
 const fs = require('fs').promises;
 

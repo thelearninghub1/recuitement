@@ -1,4 +1,3 @@
-// src/pages/SchoolsDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -237,33 +236,7 @@ const SchoolsDashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard 
-            title="Total Schools"
-            value={stats.totalSchools}
-            icon={<FaBuilding className="text-blue-500" />}
-            color="blue"
-          />
-          <StatCard 
-            title="Active Schools"
-            value={stats.activeSchools}
-            icon={<FaChartLine className="text-green-500" />}
-            color="green"
-          />
-          <StatCard 
-            title="Schools with Openings"
-            value={stats.schoolsWithOpenings}
-            icon={<FaBriefcase className="text-orange-500" />}
-            color="orange"
-          />
-          <StatCard 
-            title="Avg Openings/School"
-            value={stats.avgOpenings}
-            icon={<FaUsers className="text-purple-500" />}
-            color="purple"
-          />
-        </div>
+      
 
         {/* Search and Controls */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
@@ -279,19 +252,7 @@ const SchoolsDashboard = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="relative">
-                <FaFilter className="absolute left-4 top-3 text-gray-400" />
-                <select 
-                  className="pl-12 pr-8 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
+             
             </div>
             
             <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
@@ -623,13 +584,13 @@ const SchoolDetailsModal = ({ school, onClose, formatDate }) => {
               <div>
                 <h2 className="text-2xl font-bold">{school.name}</h2>
                 <p className="text-blue-100">
-                  {school.city}, {school.country} • Established: {school.establishedYear}
+                  {school.city}, {school.country}  Established: {school.establishedYear}
                 </p>
                 <p className="text-blue-100 text-sm flex items-center gap-2 mt-1">
                   <FaEnvelope className="inline" /> {school.email}
                   {school.phone !== 'No phone' && (
                     <>
-                      <span className="mx-2">•</span>
+                      <span className="mx-2"></span>
                       <FaPhone className="inline" /> {school.phone}
                     </>
                   )}

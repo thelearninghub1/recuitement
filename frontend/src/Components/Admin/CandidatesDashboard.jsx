@@ -249,19 +249,14 @@ const CandidatesDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <StatCard 
             title="Total Candidates"
             value={stats.totalCandidates}
             icon={<FaUsers className="text-blue-500" />}
             color="blue"
           />
-          <StatCard 
-            title="Active Candidates"
-            value={stats.activeCandidates}
-            icon={<FaUserCheck className="text-green-500" />}
-            color="green"
-          />
+       
           <StatCard 
             title="High Profile"
             value={stats.highProfileCandidates}
@@ -290,19 +285,7 @@ const CandidatesDashboard = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="relative">
-                <FaFilter className="absolute left-4 top-3 text-gray-400" />
-                <select 
-                  className="pl-12 pr-8 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">All Candidates</option>
-                  <option value="active">Active</option>
-                  <option value="pending-review">Pending Review</option>
-                  <option value="approved">Approved</option>
-                </select>
-              </div>
+           
             </div>
             
             <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
@@ -641,135 +624,152 @@ const CandidateRow = ({ candidate, onView, onDelete, formatDate }) => {
   );
 };
 
-// Candidate Details Modal Component
+// Candidate Details Modal Component - Responsive Version
 const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
   const fullCandidateData = candidate.candidateData;
 
+  // Close modal on escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-[9999] overflow-y-auto"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl my-2 sm:my-4 overflow-y-auto max-h-[95vh] sm:max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white rounded-t-2xl">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center space-x-4">
-              <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-2xl font-bold">
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 sm:p-6 text-white rounded-t-2xl sticky top-0 z-10">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+            <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold flex-shrink-0">
                 {candidate.avatar}
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">{candidate.name}</h2>
-                <p className="text-blue-100">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate">{candidate.name}</h2>
+                <p className="text-blue-100 text-sm sm:text-base truncate">
                   {candidate.currentRole} • {candidate.location}
                 </p>
-                <p className="text-blue-100 text-sm flex items-center gap-2 mt-1">
-                  <FaEnvelope className="inline" /> {candidate.email}
+                <p className="text-blue-100 text-xs sm:text-sm flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                  <FaEnvelope className="inline flex-shrink-0" /> 
+                  <span className="truncate max-w-[120px] sm:max-w-[200px]">{candidate.email}</span>
                   {candidate.phone !== 'No phone' && (
                     <>
-                      <span className="mx-2">•</span>
-                      <FaPhone className="inline" /> {candidate.phone}
+                      <span className="hidden sm:inline mx-1">•</span>
+                      <FaPhone className="inline flex-shrink-0 sm:ml-0" /> 
+                      <span className="truncate max-w-[100px] sm:max-w-[150px]">{candidate.phone}</span>
                     </>
                   )}
                 </p>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+              <span className="px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-500 text-white whitespace-nowrap">
+                Active
+              </span>
               <button 
                 onClick={onClose}
-                className="text-white hover:text-gray-200 text-2xl"
+                className="text-white hover:text-gray-200 text-2xl sm:text-3xl p-1 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
               >
                 ×
               </button>
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-500 text-white">
-                Active
-              </span>
             </div>
           </div>
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="p-3 sm:p-4 md:p-6">
+          <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 sm:gap-6">
             {/* Left Column - Personal & Contact Info */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
               {/* Personal Information Card */}
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FaUserCheck className="text-blue-500" />
+              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                  <FaUserCheck className="text-blue-500 flex-shrink-0" />
                   Personal Information
                 </h3>
                 <div className="space-y-3">
                   {fullCandidateData?.gender && (
                     <div>
-                      <p className="text-sm text-gray-600">Gender</p>
-                      <p className="font-medium">{fullCandidateData.gender}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Gender</p>
+                      <p className="font-medium text-sm sm:text-base">{fullCandidateData.gender}</p>
                     </div>
                   )}
                   {fullCandidateData?.dob && (
                     <div>
-                      <p className="text-sm text-gray-600">Date of Birth</p>
-                      <p className="font-medium">{formatDate(fullCandidateData.dob)}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Date of Birth</p>
+                      <p className="font-medium text-sm sm:text-base">{formatDate(fullCandidateData.dob)}</p>
                     </div>
                   )}
                   {fullCandidateData?.nationality && (
                     <div>
-                      <p className="text-sm text-gray-600">Nationality</p>
-                      <p className="font-medium">{fullCandidateData.nationality}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Nationality</p>
+                      <p className="font-medium text-sm sm:text-base">{fullCandidateData.nationality}</p>
                     </div>
                   )}
                   {fullCandidateData?.maritalStatus && (
                     <div>
-                      <p className="text-sm text-gray-600">Marital Status</p>
-                      <p className="font-medium">{fullCandidateData.maritalStatus}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Marital Status</p>
+                      <p className="font-medium text-sm sm:text-base">{fullCandidateData.maritalStatus}</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Contact Information Card */}
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FaPhone className="text-green-500" />
+              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                  <FaPhone className="text-green-500 flex-shrink-0" />
                   Contact Information
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{candidate.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Email</p>
+                    <p className="font-medium text-sm sm:text-base break-all">{candidate.email}</p>
                   </div>
                   {candidate.phone !== 'No phone' && (
                     <div>
-                      <p className="text-sm text-gray-600">Phone</p>
-                      <p className="font-medium">{candidate.phone}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Phone</p>
+                      <p className="font-medium text-sm sm:text-base">{candidate.phone}</p>
                     </div>
                   )}
                   {fullCandidateData?.whatsapp && (
                     <div>
-                      <p className="text-sm text-gray-600">WhatsApp</p>
-                      <p className="font-medium">{fullCandidateData.whatsapp}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">WhatsApp</p>
+                      <p className="font-medium text-sm sm:text-base">{fullCandidateData.whatsapp}</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Location Card */}
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FaMapMarkerAlt className="text-red-500" />
+              <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                  <FaMapMarkerAlt className="text-red-500 flex-shrink-0" />
                   Location
                 </h3>
                 <div className="space-y-3">
                   {fullCandidateData?.countryOfResidence && (
                     <div>
-                      <p className="text-sm text-gray-600">Country of Residence</p>
-                      <p className="font-medium">{fullCandidateData.countryOfResidence}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Country of Residence</p>
+                      <p className="font-medium text-sm sm:text-base">{fullCandidateData.countryOfResidence}</p>
                     </div>
                   )}
                   <div>
-                    <p className="text-sm text-gray-600">Current City</p>
-                    <p className="font-medium">{candidate.location}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Current City</p>
+                    <p className="font-medium text-sm sm:text-base">{candidate.location}</p>
                   </div>
                   {fullCandidateData?.willingRelocateCity && (
                     <div>
-                      <p className="text-sm text-green-600">Willing to Relocate</p>
-                      <p className="font-medium text-green-800">{fullCandidateData.willingRelocateCity}</p>
+                      <p className="text-xs sm:text-sm text-green-600">Willing to Relocate</p>
+                      <p className="font-medium text-sm sm:text-base text-green-800">{fullCandidateData.willingRelocateCity}</p>
                     </div>
                   )}
                 </div>
@@ -777,37 +777,37 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
             </div>
 
             {/* Main Content - Education, Experience, etc. */}
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-3 space-y-4 sm:space-y-6">
               {/* Education Card */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FaGraduationCap className="text-purple-500" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                  <FaGraduationCap className="text-purple-500 flex-shrink-0" />
                   Education & Qualifications
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
-                    <p className="text-sm text-gray-600">Highest Degree</p>
-                    <p className="text-lg font-medium text-gray-800 mb-4">
+                    <p className="text-xs sm:text-sm text-gray-600">Highest Degree</p>
+                    <p className="text-base sm:text-lg font-medium text-gray-800 mb-3 sm:mb-4">
                       {fullCandidateData?.degree === "Other" 
                         ? fullCandidateData.degreeOther 
                         : candidate.education}
                     </p>
                     
-                    <p className="text-sm text-gray-600">University</p>
-                    <p className="font-medium">{candidate.universityName}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">University</p>
+                    <p className="font-medium text-sm sm:text-base break-words">{candidate.universityName}</p>
                     {fullCandidateData?.universityLocation && (
-                      <p className="text-sm text-gray-500">{fullCandidateData.universityLocation}</p>
+                      <p className="text-xs sm:text-sm text-gray-500">{fullCandidateData.universityLocation}</p>
                     )}
                   </div>
                   
                   {/* Certifications */}
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Certifications</h4>
+                    <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">Certifications</h4>
                     <div className="space-y-2">
                       {fullCandidateData?.englishCert && fullCandidateData.englishCert !== "No" && (
-                        <div className="flex items-center gap-2">
-                          <FaCertificate className="text-green-500" />
-                          <span className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <FaCertificate className="text-green-500 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs sm:text-sm">
                             English: {fullCandidateData.englishCert === "Other" 
                               ? fullCandidateData.englishCertOther 
                               : fullCandidateData.englishCert}
@@ -816,9 +816,9 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
                       )}
                       
                       {fullCandidateData?.teachingLicense && fullCandidateData.teachingLicense !== "No" && (
-                        <div className="flex items-center gap-2">
-                          <FaCertificate className="text-blue-500" />
-                          <span className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <FaCertificate className="text-blue-500 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs sm:text-sm">
                             Teaching License: {fullCandidateData.teachingLicense === "Other" 
                               ? fullCandidateData.teachingLicenseOther 
                               : fullCandidateData.teachingLicense}
@@ -827,9 +827,9 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
                       )}
                       
                       {fullCandidateData?.teachingDiploma && fullCandidateData.teachingDiploma !== "No" && (
-                        <div className="flex items-center gap-2">
-                          <FaCertificate className="text-orange-500" />
-                          <span className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <FaCertificate className="text-orange-500 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs sm:text-sm">
                             Teaching Diploma: {fullCandidateData.teachingDiploma === "Other" 
                               ? fullCandidateData.teachingDiplomaOther 
                               : fullCandidateData.teachingDiploma}
@@ -842,38 +842,38 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
               </div>
 
               {/* Experience & Positions Card */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FaBriefcase className="text-orange-500" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                  <FaBriefcase className="text-orange-500 flex-shrink-0" />
                   Experience & Positions
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
-                    <p className="text-sm text-gray-600">Total Experience</p>
-                    <p className="text-2xl font-bold text-blue-600 mb-4">{candidate.experience}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">Total Experience</p>
+                    <p className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4">{candidate.experience}</p>
                     
                     {fullCandidateData?.currentInstitution && (
                       <div className="mb-3">
-                        <p className="text-sm text-gray-600">Current Institution</p>
-                        <p className="font-medium">{fullCandidateData.currentInstitution}</p>
+                        <p className="text-xs sm:text-sm text-gray-600">Current Institution</p>
+                        <p className="font-medium text-sm sm:text-base break-words">{fullCandidateData.currentInstitution}</p>
                       </div>
                     )}
                     
                     {fullCandidateData?.previousInstitution && (
                       <div>
-                        <p className="text-sm text-gray-600">Previous Institution</p>
-                        <p className="font-medium">{fullCandidateData.previousInstitution}</p>
+                        <p className="text-xs sm:text-sm text-gray-600">Previous Institution</p>
+                        <p className="font-medium text-sm sm:text-base break-words">{fullCandidateData.previousInstitution}</p>
                       </div>
                     )}
                   </div>
                   
                   <div>
-                    <p className="text-sm text-gray-600 mb-2">Positions Interested In</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2">Positions Interested In</p>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {candidate.positionsInterested.map((position, index) => (
                         <span
                           key={index}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                          className="px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium"
                         >
                           {position}
                         </span>
@@ -881,13 +881,13 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
                     </div>
                     
                     {candidate.curriculumTaught.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm text-gray-600 mb-2">Curriculum Experience</p>
-                        <div className="flex flex-wrap gap-2">
+                      <div className="mt-3 sm:mt-4">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-2">Curriculum Experience</p>
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                           {candidate.curriculumTaught.map((curriculum, index) => (
                             <span
                               key={index}
-                              className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
+                              className="px-2 sm:px-3 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-xs sm:text-sm font-medium"
                             >
                               {curriculum}
                             </span>
@@ -900,20 +900,20 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
               </div>
 
               {/* Skills & Languages Card */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FaStar className="text-yellow-500" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                  <FaStar className="text-yellow-500 flex-shrink-0" />
                   Skills & Languages
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   {/* Skills */}
                   <div>
-                    <p className="text-sm text-gray-600 mb-2">Professional Skills</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2">Professional Skills</p>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {candidate.skills.map((skill, index) => (
                         <span
                           key={index}
-                          className="px-3 py-1 bg-purple-100 text-purple-800 rounded-lg text-sm font-medium"
+                          className="px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-800 rounded-lg text-xs sm:text-sm font-medium"
                         >
                           {skill}
                         </span>
@@ -923,19 +923,19 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
                   
                   {/* Languages */}
                   <div>
-                    <p className="text-sm text-gray-600 mb-2">Languages</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2">Languages</p>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {candidate.languages && candidate.languages.length > 0 ? (
                         candidate.languages.map((language, index) => (
                           <span
                             key={index}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium"
+                            className="px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-800 rounded-lg text-xs sm:text-sm font-medium"
                           >
                             {language === "Other" ? candidate.languagesOther : language}
                           </span>
                         ))
                       ) : (
-                        <span className="text-gray-500">No languages specified</span>
+                        <span className="text-gray-500 text-xs sm:text-sm">No languages specified</span>
                       )}
                     </div>
                   </div>
@@ -944,31 +944,31 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
 
               {/* Additional Information Card */}
               {(fullCandidateData?.expectedSalary || fullCandidateData?.otherNotes || fullCandidateData?.availableFrom) && (
-                <div className="bg-white border border-gray-200 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <FaCalendar className="text-green-500" />
+                <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                    <FaCalendar className="text-green-500 flex-shrink-0" />
                     Additional Information
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {fullCandidateData?.expectedSalary && (
-                      <div className="p-4 bg-green-50 rounded-xl">
-                        <p className="text-sm text-gray-600">Expected Salary</p>
-                        <p className="text-xl font-bold text-green-700">{fullCandidateData.expectedSalary} SAR</p>
+                      <div className="p-3 sm:p-4 bg-green-50 rounded-xl">
+                        <p className="text-xs sm:text-sm text-gray-600">Expected Salary</p>
+                        <p className="text-base sm:text-xl font-bold text-green-700">{fullCandidateData.expectedSalary} SAR</p>
                         <p className="text-xs text-green-600">Monthly</p>
                       </div>
                     )}
                     
                     {fullCandidateData?.availableFrom && (
-                      <div className="p-4 bg-blue-50 rounded-xl">
-                        <p className="text-sm text-gray-600">Available From</p>
-                        <p className="text-lg font-medium text-blue-700">{formatDate(fullCandidateData.availableFrom)}</p>
+                      <div className="p-3 sm:p-4 bg-blue-50 rounded-xl">
+                        <p className="text-xs sm:text-sm text-gray-600">Available From</p>
+                        <p className="text-sm sm:text-lg font-medium text-blue-700">{formatDate(fullCandidateData.availableFrom)}</p>
                       </div>
                     )}
                     
                     {fullCandidateData?.iqama && fullCandidateData.iqama !== "Not specified" && (
-                      <div className="p-4 bg-purple-50 rounded-xl">
-                        <p className="text-sm text-gray-600">Residency Status</p>
-                        <p className="text-lg font-medium text-purple-700">
+                      <div className="p-3 sm:p-4 bg-purple-50 rounded-xl">
+                        <p className="text-xs sm:text-sm text-gray-600">Residency Status</p>
+                        <p className="text-sm sm:text-lg font-medium text-purple-700">
                           {fullCandidateData.iqama === "Other" ? fullCandidateData.iqamaOther : fullCandidateData.iqama}
                         </p>
                       </div>
@@ -976,9 +976,9 @@ const CandidateDetailsModal = ({ candidate, onClose, formatDate }) => {
                   </div>
                   
                   {fullCandidateData?.otherNotes && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                      <p className="text-sm text-gray-600">Additional Notes</p>
-                      <p className="font-medium text-gray-800 whitespace-pre-line">{fullCandidateData.otherNotes}</p>
+                    <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gray-50 rounded-xl">
+                      <p className="text-xs sm:text-sm text-gray-600">Additional Notes</p>
+                      <p className="font-medium text-sm sm:text-base text-gray-800 whitespace-pre-line break-words">{fullCandidateData.otherNotes}</p>
                     </div>
                   )}
                 </div>

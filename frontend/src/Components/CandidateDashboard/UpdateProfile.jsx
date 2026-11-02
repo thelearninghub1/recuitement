@@ -707,20 +707,7 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Middle Name */}
-              <div>
-                <InputLabel htmlFor="middleName" icon={<User className="w-4 h-4" />}>
-                  Middle Name
-                </InputLabel>
-                <input
-                  id="middleName"
-                  value={formData.middleName}
-                  onChange={(e) => handleChange("middleName", e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl p-3 transition-all duration-200 focus:border-[#0077BB] focus:ring-2 focus:ring-blue-100"
-                  placeholder="Middle name (optional)"
-                />
-              </div>
-
+     
               {/* Last Name */}
               <div>
                 <InputLabel htmlFor="lastName" required icon={<User className="w-4 h-4" />}>
@@ -1567,7 +1554,7 @@ useEffect(() => {
               {/* Degree Files */}
               <div className="md:col-span-2">
                 <InputLabel icon={<FileText className="w-4 h-4" />}>
-                  Degree Certificates (Optional - up to 5 files)
+                  Degree Certificates (Optional)
                 </InputLabel>
                 <input
                   type="file"

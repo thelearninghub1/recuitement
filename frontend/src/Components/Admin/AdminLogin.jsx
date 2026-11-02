@@ -392,7 +392,7 @@ export default function SystemAdminLogin() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-white/5 border-2 border-gray-700 rounded-xl p-4 pl-11 text-white transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 placeholder-gray-500"
-                      placeholder="admin@apexstaffing.com"
+                      placeholder="admin@theteachingpath.com"
                       onFocus={() => clearError('email')}
                       autoComplete="email"
                     />

@@ -1,4 +1,4 @@
-// ViewSchoolsPage.jsx - Complete corrected version
+// ViewSchoolsPage.jsx - Updated to match SchoolRegister form data structure
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,9 @@ import {
   ChevronUp,
   Heart,
   Briefcase,
-  Target
+  Target,
+  FileText,
+  Shield
 } from 'lucide-react';
 import { allUserAction } from '../../../actions/userActions';
 import { toast } from 'react-toastify';
@@ -43,7 +45,9 @@ const ViewSchoolsPage = () => {
     curriculum: '',
     established: '',
     studentCapacity: '',
-    accreditation: ''
+    accreditation: '',
+    schoolLevel: '',
+    facilities: ''
   });
   
   const [sortBy, setSortBy] = useState('rating');
@@ -63,27 +67,32 @@ const ViewSchoolsPage = () => {
     if (searchTerm) {
       result = result.filter(school => {
         const schoolName = school.schoolData?.schoolName || 
+                         school.schoolData?.schoolNameOther ||
                          `${school.profile?.firstName || ''} ${school.profile?.lastName || ''}`;
         const location = school.schoolData?.city || '';
         const type = Array.isArray(school.schoolData?.schoolType) 
           ? school.schoolData.schoolType.join(' ') 
           : school.schoolData?.schoolType || '';
+        const description = school.schoolData?.schoolDescription || '';
         
         return (
           schoolName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          type.toLowerCase().includes(searchTerm.toLowerCase())
+          type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          description.toLowerCase().includes(searchTerm.toLowerCase())
         );
       });
     }
     
-    // Apply other filters
+    // Apply location filter
     if (filters.location) {
       result = result.filter(school => 
-        school.schoolData?.city?.toLowerCase() === filters.location.toLowerCase()
+        school.schoolData?.city?.toLowerCase() === filters.location.toLowerCase() ||
+        school.schoolData?.cityOther?.toLowerCase() === filters.location.toLowerCase()
       );
     }
     
+    // Apply school type filter
     if (filters.schoolType) {
       result = result.filter(school => {
         const types = school.schoolData?.schoolType;
@@ -94,6 +103,7 @@ const ViewSchoolsPage = () => {
       });
     }
     
+    // Apply curriculum filter
     if (filters.curriculum) {
       result = result.filter(school => {
         const curricula = school.schoolData?.curriculum;
@@ -104,14 +114,16 @@ const ViewSchoolsPage = () => {
       });
     }
     
+    // Apply established year filter (minimum year)
     if (filters.established) {
       const year = parseInt(filters.established);
       result = result.filter(school => {
-        const establishedYear = parseInt(school.schoolData?.establishedYear || 2000);
+        const establishedYear = parseInt(school.schoolData?.establishedYear || 0);
         return establishedYear >= year;
       });
     }
     
+    // Apply student capacity filter (minimum capacity)
     if (filters.studentCapacity) {
       const capacity = parseInt(filters.studentCapacity);
       result = result.filter(school => {
@@ -120,10 +132,39 @@ const ViewSchoolsPage = () => {
       });
     }
     
+    // Apply school level filter
+    if (filters.schoolLevel) {
+      result = result.filter(school => {
+        const levels = school.schoolData?.schoolLevel;
+        if (Array.isArray(levels)) {
+          return levels.includes(filters.schoolLevel);
+        }
+        return levels === filters.schoolLevel;
+      });
+    }
+    
+    // Apply facilities filter
+    if (filters.facilities) {
+      result = result.filter(school => {
+        const facilities = school.schoolData?.facilities;
+        if (Array.isArray(facilities)) {
+          return facilities.includes(filters.facilities);
+        }
+        return facilities === filters.facilities;
+      });
+    }
+    
+    // Apply accreditation filter
     if (filters.accreditation) {
-      result = result.filter(school => 
-        school.schoolData?.accreditationStatus === filters.accreditation
-      );
+      result = result.filter(school => {
+        const accreditations = school.schoolData?.accreditations;
+        if (Array.isArray(accreditations)) {
+          return accreditations.some(acc => 
+            acc.toLowerCase().includes(filters.accreditation.toLowerCase())
+          );
+        }
+        return accreditations === filters.accreditation;
+      });
     }
     
     // Apply sorting
@@ -142,6 +183,9 @@ const ViewSchoolsPage = () => {
           parseInt(b.schoolData?.studentCapacity || 0) - 
           parseInt(a.schoolData?.studentCapacity || 0)
         );
+        break;
+      case 'recent':
+        result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       default:
         break;
@@ -190,6 +234,10 @@ const ViewSchoolsPage = () => {
   const locations = getSingleValues('city');
   const schoolTypes = getArrayFromField('schoolType');
   const curricula = getArrayFromField('curriculum');
+  const schoolLevels = getArrayFromField('schoolLevel');
+  const facilities = getArrayFromField('facilities');
+  const accreditations = getArrayFromField('accreditations');
+  
   const establishedYears = getSingleValues('establishedYear')
     .map(year => parseInt(year))
     .filter(year => !isNaN(year))
@@ -206,6 +254,7 @@ const ViewSchoolsPage = () => {
   };
 
   const handleContactSchool = (schoolId) => {
+    // Navigate to login or contact page
     navigate('/teacher-login');
   };
 
@@ -215,6 +264,7 @@ const ViewSchoolsPage = () => {
       const newFavorites = new Set(prev);
       if (newFavorites.has(schoolId)) {
         newFavorites.delete(schoolId);
+        toast.info('Removed from favorites');
       } else {
         newFavorites.add(schoolId);
         toast.success('Added to favorites');
@@ -238,10 +288,13 @@ const ViewSchoolsPage = () => {
       curriculum: '',
       established: '',
       studentCapacity: '',
-      accreditation: ''
+      accreditation: '',
+      schoolLevel: '',
+      facilities: ''
     });
     setSearchTerm('');
     setCurrentPage(1);
+    toast.info('All filters cleared');
   };
 
   const handlePageChange = (pageNumber) => {
@@ -255,16 +308,13 @@ const ViewSchoolsPage = () => {
     if (Array.isArray(value)) {
       return value;
     } else if (typeof value === 'string') {
-      // Try to parse as JSON array
       try {
         const parsed = JSON.parse(value);
         if (Array.isArray(parsed)) return parsed;
       } catch {
-        // If it's a comma-separated string, split it
         if (value.includes(',')) {
           return value.split(',').map(item => item.trim()).filter(Boolean);
         }
-        // Otherwise treat as single item array
         return [value];
       }
     }
@@ -275,6 +325,12 @@ const ViewSchoolsPage = () => {
   const safeGetValue = (data, field, defaultValue = '') => {
     const value = data?.[field];
     return value || defaultValue;
+  };
+
+  // Get the first few items from an array for display
+  const getDisplayItems = (arr, max = 3) => {
+    if (!arr || arr.length === 0) return [];
+    return arr.slice(0, max);
   };
 
   if (usersLoading) {
@@ -312,7 +368,7 @@ const ViewSchoolsPage = () => {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search schools by name, location, or type..."
+                placeholder="Search schools by name, location, type, or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -339,6 +395,7 @@ const ViewSchoolsPage = () => {
                 <option value="rating">Highest Rated</option>
                 <option value="established">Newly Established</option>
                 <option value="capacity">Largest Capacity</option>
+                <option value="recent">Most Recent</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             </div>
@@ -389,6 +446,24 @@ const ViewSchoolsPage = () => {
                   </select>
                 </div>
 
+                {/* School Level Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Users className="inline w-4 h-4 mr-1" />
+                    School Level
+                  </label>
+                  <select
+                    value={filters.schoolLevel}
+                    onChange={(e) => handleFilterChange('schoolLevel', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  >
+                    <option value="">All Levels</option>
+                    {schoolLevels.map((level, idx) => (
+                      <option key={idx} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Curriculum Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -403,6 +478,42 @@ const ViewSchoolsPage = () => {
                     <option value="">All Curricula</option>
                     {curricula.map((curr, idx) => (
                       <option key={idx} value={curr}>{curr}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Facilities Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Shield className="inline w-4 h-4 mr-1" />
+                    Facilities
+                  </label>
+                  <select
+                    value={filters.facilities}
+                    onChange={(e) => handleFilterChange('facilities', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  >
+                    <option value="">All Facilities</option>
+                    {facilities.map((facility, idx) => (
+                      <option key={idx} value={facility}>{facility}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Accreditation Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Award className="inline w-4 h-4 mr-1" />
+                    Accreditation
+                  </label>
+                  <select
+                    value={filters.accreditation}
+                    onChange={(e) => handleFilterChange('accreditation', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  >
+                    <option value="">All Accreditations</option>
+                    {accreditations.map((acc, idx) => (
+                      <option key={idx} value={acc}>{acc}</option>
                     ))}
                   </select>
                 </div>
@@ -429,7 +540,7 @@ const ViewSchoolsPage = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Users className="inline w-4 h-4 mr-1" />
-                    Student Capacity
+                    Min Student Capacity
                   </label>
                   <select
                     value={filters.studentCapacity}
@@ -443,29 +554,10 @@ const ViewSchoolsPage = () => {
                     <option value="2000">2000+ Students</option>
                   </select>
                 </div>
-
-                {/* Accreditation Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Award className="inline w-4 h-4 mr-1" />
-                    Accreditation
-                  </label>
-                  <select
-                    value={filters.accreditation}
-                    onChange={(e) => handleFilterChange('accreditation', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  >
-                    <option value="">Any Status</option>
-                    <option value="accredited">Accredited</option>
-                    <option value="pending">Pending</option>
-                    <option value="not_accredited">Not Accredited</option>
-                  </select>
-                </div>
               </div>
 
               {/* Clear Filters Button */}
-              {(filters.location || filters.schoolType || filters.curriculum || 
-                filters.established || filters.studentCapacity || filters.accreditation) && (
+              {Object.values(filters).some(v => v !== '' && v !== 'all') && (
                 <div className="mt-6 flex justify-end">
                   <button
                     onClick={clearFilters}
@@ -507,23 +599,27 @@ const ViewSchoolsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {currentSchools.map((school, index) => {
                 const schoolData = school.schoolData || {};
-                const schoolName = safeGetValue(schoolData, 'schoolName', 
-                  `${school.profile?.firstName || ''} ${school.profile?.lastName || ''}`.trim() || 'School');
+                const schoolName = schoolData.schoolName || 
+                                 schoolData.schoolNameOther ||
+                                 `${school.profile?.firstName || ''} ${school.profile?.lastName || ''}`.trim() || 'School';
                 const schoolTypeArray = safeGetArray(schoolData, 'schoolType', ['International School']);
                 const schoolType = schoolTypeArray[0] || 'International School';
-                const location = `${safeGetValue(schoolData, 'city', 'City')}, Saudi Arabia`;
-                const established = safeGetValue(schoolData, 'establishedYear', '2000');
-                const capacity = safeGetValue(schoolData, 'studentCapacity', '500+');
-                const curriculum = safeGetArray(schoolData, 'curriculum', ['American', 'British']);
-                const openings = safeGetValue(schoolData, 'immediateOpenings', '5');
-                const rating = 4.9;
+                const location = schoolData.city || schoolData.cityOther || 'Saudi Arabia';
+                const established = schoolData.establishedYear || '2000';
+                const capacity = schoolData.studentCapacity || '500';
+                const curriculum = safeGetArray(schoolData, 'curriculum', ['International']);
+                const schoolLevel = safeGetArray(schoolData, 'schoolLevel', ['All Levels']);
+                const facilities = safeGetArray(schoolData, 'facilities', []);
+                const accreditations = safeGetArray(schoolData, 'accreditations', []);
+                const description = schoolData.schoolDescription || '';
+                const contactPerson = schoolData.contactPerson || '';
+                const email = school.email || schoolData.email || '';
                 
-                // Safely get benefits as array
-                const benefits = safeGetArray(schoolData, 'benefits', [
-                  'Housing',
-                  'Medical Insurance',
-                  'Annual Flights'
-                ]);
+                // Get first few items for display
+                const displayCurricula = getDisplayItems(curriculum, 3);
+                const displayFacilities = getDisplayItems(facilities, 3);
+                const displayAccreditations = getDisplayItems(accreditations, 2);
+                const displayLevels = getDisplayItems(schoolLevel, 3);
 
                 return (
                   <motion.div
@@ -549,16 +645,16 @@ const ViewSchoolsPage = () => {
                       
                       <div className="flex items-start gap-4 mb-4">
                         {/* School Logo/Initials */}
-                        <div className="w-16 h-16 bg-gradient-to-br from-[#4ECDC4] to-[#44A08D] rounded-xl flex items-center justify-center text-white font-bold text-xl">
+                        <div className="w-16 h-16 bg-gradient-to-br from-[#4ECDC4] to-[#44A08D] rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
                           {schoolName.substring(0, 2).toUpperCase()}
                         </div>
                         
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{schoolName}</h3>
-                          <p className="text-[#4ECDC4] font-medium">{schoolType}</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">{schoolName}</h3>
+                          <p className="text-[#4ECDC4] font-medium truncate">{schoolType}</p>
                           <div className="flex items-center gap-1 mt-1">
                             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                            <span className="text-sm font-semibold">{rating}</span>
+                            <span className="text-sm font-semibold">4.9</span>
                             <span className="text-xs text-gray-500">(36 reviews)</span>
                           </div>
                         </div>
@@ -571,78 +667,104 @@ const ViewSchoolsPage = () => {
                         <span className="px-3 py-1 bg-white text-emerald-600 text-sm font-medium rounded-full border border-emerald-200">
                           {capacity} Students
                         </span>
-                        <span className="px-3 py-1 bg-white text-purple-600 text-sm font-medium rounded-full border border-purple-200">
-                          {openings} Openings
-                        </span>
+                        {displayLevels.length > 0 && (
+                          <span className="px-3 py-1 bg-white text-purple-600 text-sm font-medium rounded-full border border-purple-200 truncate max-w-[120px]">
+                            {displayLevels[0]}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* School Details */}
                     <div className="p-6 flex-1 flex flex-col">
                       {/* Key Info */}
-                      <div className="space-y-4 mb-6">
-                        <div className="flex items-center gap-3">
-                          <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                          <span className="text-gray-700">{location}</span>
+                      <div className="space-y-3 mb-6">
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-gray-700 truncate">{location}</span>
                         </div>
+
+                        {contactPerson && (
+                          <div className="flex items-start gap-3">
+                            <Users className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="text-gray-700 truncate">Contact: {contactPerson}</span>
+                          </div>
+                        )}
                         
-                        <div className="flex items-center gap-3">
-                          <BookOpen className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                          <div>
-                            <span className="text-gray-900 font-semibold">Curriculum</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {curriculum.slice(0, 3).map((curr, idx) => (
-                                <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">
-                                  {curr}
-                                </span>
-                              ))}
+                        {displayCurricula.length > 0 && (
+                          <div className="flex items-start gap-3">
+                            <BookOpen className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-gray-900 font-semibold text-sm block">Curriculum</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {displayCurricula.map((curr, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded truncate max-w-[120px]">
+                                    {curr}
+                                  </span>
+                                ))}
+                                {curriculum.length > 3 && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                    +{curriculum.length - 3}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <Briefcase className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                          <div>
-                            <span className="text-gray-900 font-semibold">Open Positions</span>
-                            <p className="text-[#4ECDC4] font-bold text-lg">{openings}</p>
+                        )}
+
+                        {displayFacilities.length > 0 && (
+                          <div className="flex items-start gap-3">
+                            <Shield className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-gray-900 font-semibold text-sm block">Facilities</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {displayFacilities.map((facility, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded truncate max-w-[120px]">
+                                    {facility}
+                                  </span>
+                                ))}
+                                {facilities.length > 3 && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                    +{facilities.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {displayAccreditations.length > 0 && (
+                          <div className="flex items-start gap-3">
+                            <Award className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-gray-900 font-semibold text-sm block">Accreditations</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {displayAccreditations.map((acc, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded truncate max-w-[120px]">
+                                    {acc}
+                                  </span>
+                                ))}
+                                {accreditations.length > 2 && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                    +{accreditations.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Benefits */}
-                      {benefits.length > 0 && (
-                        <div className="mb-6">
-                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                            <Award className="w-4 h-4 text-yellow-500" />
-                            Benefits Offered
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {benefits.slice(0, 3).map((benefit, idx) => (
-                              <span key={idx} className="px-3 py-1 bg-yellow-50 text-yellow-700 text-sm rounded-full">
-                                {benefit}
-                              </span>
-                            ))}
-                          </div>
+                      {/* Description Preview */}
+                      {description && (
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {description}
+                          </p>
                         </div>
                       )}
 
-                      {/* Action Buttons */}
-                      <div className="mt-auto pt-6 border-t border-gray-100">
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => handleViewSchool(school._id)}
-                            className="flex-1 py-3 bg-gradient-to-r from-[#4ECDC4] to-[#44A08D] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
-                          >
-                            View School
-                          </button>
-                          <button
-                            onClick={() => handleContactSchool(school._id)}
-                            className="px-6 py-3 border-2 border-[#4ECDC4] text-[#4ECDC4] rounded-xl font-semibold hover:bg-teal-50 transition-all duration-300"
-                          >
-                            Contact
-                          </button>
-                        </div>
-                      </div>
+                    
                     </div>
                   </motion.div>
                 );
@@ -735,5 +857,4 @@ const ViewSchoolsPage = () => {
   );
 };
 
-// Make sure this export statement is at the end of the file
 export default ViewSchoolsPage;

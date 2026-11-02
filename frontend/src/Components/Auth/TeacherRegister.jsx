@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mail, UploadCloud, CheckCircle, MapPin, Globe, User, GraduationCap, Briefcase, FileText, Shield, Languages, Activity, Calendar, Lock, LogIn, Eye, EyeOff, AlertCircle, X, Trash2, Plus } from "lucide-react";
 import Select from "react-select";
 import { Country, State, City } from "country-state-city";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import { registerCandidatesAction, clearErrors } from "../../actions/userActions";
@@ -129,15 +129,70 @@ const extracurricularList = [
   "Other"
 ];
 
+// ------------------------------------------------------------
+// Nationality as DEMONYMS (Pakistani, Indian, Bangladeshi, etc.)
+// ------------------------------------------------------------
+const NATIONALITY_DEMONYMS = {
+  AF: "Afghan", AL: "Albanian", DZ: "Algerian", AD: "Andorran", AO: "Angolan",
+  AR: "Argentine", AM: "Armenian", AU: "Australian", AT: "Austrian", AZ: "Azerbaijani",
+  BS: "Bahamian", BH: "Bahraini", BD: "Bangladeshi", BB: "Barbadian", BY: "Belarusian",
+  BE: "Belgian", BZ: "Belizean", BJ: "Beninese", BT: "Bhutanese", BO: "Bolivian",
+  BA: "Bosnian", BW: "Botswana", BR: "Brazilian", BN: "Bruneian", BG: "Bulgarian",
+  BF: "Burkinabé", BI: "Burundian", KH: "Cambodian", CM: "Cameroonian", CA: "Canadian",
+  CV: "Cape Verdean", CF: "Central African", TD: "Chadian", CL: "Chilean", CN: "Chinese",
+  CO: "Colombian", KM: "Comorian", CG: "Congolese", CD: "Congolese (DRC)", CR: "Costa Rican",
+  HR: "Croatian", CU: "Cuban", CY: "Cypriot", CZ: "Czech", DK: "Danish", DJ: "Djiboutian",
+  DM: "Dominican", DO: "Dominican", EC: "Ecuadorian", EG: "Egyptian", SV: "Salvadoran",
+  GQ: "Equatorial Guinean", ER: "Eritrean", EE: "Estonian", SZ: "Swazi", ET: "Ethiopian",
+  FJ: "Fijian", FI: "Finnish", FR: "French", GA: "Gabonese", GM: "Gambian", GE: "Georgian",
+  DE: "German", GH: "Ghanaian", GR: "Greek", GD: "Grenadian", GT: "Guatemalan",
+  GN: "Guinean", GW: "Bissau-Guinean", GY: "Guyanese", HT: "Haitian", HN: "Honduran",
+  HU: "Hungarian", IS: "Icelandic", IN: "Indian", ID: "Indonesian", IR: "Iranian",
+  IQ: "Iraqi", IE: "Irish", IL: "Israeli", IT: "Italian", CI: "Ivorian", JM: "Jamaican",
+  JP: "Japanese", JO: "Jordanian", KZ: "Kazakh", KE: "Kenyan", KI: "I-Kiribati",
+  KP: "North Korean", KR: "South Korean", KW: "Kuwaiti", KG: "Kyrgyz", LA: "Laotian",
+  LV: "Latvian", LB: "Lebanese", LS: "Basotho", LR: "Liberian", LY: "Libyan",
+  LI: "Liechtensteiner", LT: "Lithuanian", LU: "Luxembourger", MG: "Malagasy",
+  MW: "Malawian", MY: "Malaysian", MV: "Maldivian", ML: "Malian", MT: "Maltese",
+  MH: "Marshallese", MR: "Mauritanian", MU: "Mauritian", MX: "Mexican", FM: "Micronesian",
+  MD: "Moldovan", MC: "Monégasque", MN: "Mongolian", ME: "Montenegrin", MA: "Moroccan",
+  MZ: "Mozambican", MM: "Burmese", NA: "Namibian", NR: "Nauruan", NP: "Nepalese",
+  NL: "Dutch", NZ: "New Zealander", NI: "Nicaraguan", NE: "Nigerien", NG: "Nigerian",
+  MK: "Macedonian", NO: "Norwegian", OM: "Omani", PK: "Pakistani", PW: "Palauan",
+  PS: "Palestinian", PA: "Panamanian", PG: "Papua New Guinean", PY: "Paraguayan",
+  PE: "Peruvian", PH: "Filipino", PL: "Polish", PT: "Portuguese", QA: "Qatari",
+  RO: "Romanian", RU: "Russian", RW: "Rwandan", KN: "Kittitian", LC: "Saint Lucian",
+  VC: "Vincentian", WS: "Samoan", SM: "Sammarinese", ST: "São Toméan", SA: "Saudi",
+  SN: "Senegalese", RS: "Serbian", SC: "Seychellois", SL: "Sierra Leonean",
+  SG: "Singaporean", SK: "Slovak", SI: "Slovenian", SB: "Solomon Islander",
+  SO: "Somali", ZA: "South African", SS: "South Sudanese", ES: "Spanish",
+  LK: "Sri Lankan", SD: "Sudanese", SR: "Surinamese", SE: "Swedish", CH: "Swiss",
+  SY: "Syrian", TW: "Taiwanese", TJ: "Tajik", TZ: "Tanzanian", TH: "Thai",
+  TL: "Timorese", TG: "Togolese", TO: "Tongan", TT: "Trinidadian", TN: "Tunisian",
+  TR: "Turkish", TM: "Turkmen", TV: "Tuvaluan", UG: "Ugandan", UA: "Ukrainian",
+  AE: "Emirati", GB: "British", US: "American", UY: "Uruguayan", UZ: "Uzbek",
+  VU: "Vanuatuan", VA: "Vatican", VE: "Venezuelan", VN: "Vietnamese", YE: "Yemeni",
+  ZM: "Zambian", ZW: "Zimbabwean"
+};
+
 // Get today's date for date restrictions
 const today = new Date().toISOString().split('T')[0];
 
-// Get all countries for react-select
+// Build country options — for NATIONALITY we use demonyms
 const countryOptions = Country.getAllCountries().map(country => ({
   value: country.isoCode,
   label: country.name,
   ...country
 }));
+
+// Build nationality options (using demonyms)
+const nationalityOptions = Country.getAllCountries()
+  .map(country => ({
+    value: country.isoCode,
+    label: NATIONALITY_DEMONYMS[country.isoCode] || country.name,
+    countryName: country.name,
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 // Generate years 0-40 for experience dropdown
 const experienceYears = Array.from({ length: 41 }, (_, i) => i);
@@ -250,6 +305,8 @@ export default function TeacherRegister() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otherCertificates, setOtherCertificates] = useState([]);
   const [newCertificate, setNewCertificate] = useState({ name: "", institution: "", year: "" });
+  // ✅ Terms & Conditions — frontend only
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const confettiRef = useRef(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -278,10 +335,8 @@ export default function TeacherRegister() {
   // Handle API success and errors - NO ALERTS, only toast messages
   useEffect(() => {
     if (error) {
-      // Check if error is about invalid token or authentication
       if (error.includes("Invalid token") || error.includes("login again") || error.includes("unauthorized")) {
         toast.error("Session expired. Please login again.");
-        // Optionally redirect to login after 2 seconds
         setTimeout(() => {
           navigate('/teacher-login');
         }, 2000);
@@ -297,7 +352,6 @@ export default function TeacherRegister() {
       setSubmitted(true);
       runConfetti();
       
-      // Redirect to teacher profile after 2 seconds
       setTimeout(() => {
         navigate('/teacher-profile');
       }, 2000);
@@ -332,7 +386,6 @@ export default function TeacherRegister() {
     setData((prev) => {
       const arr = prev[key] || [];
       
-      // Check for max limits
       if (key === "positionsInterested" && arr.length >= 3 && !arr.includes(value)) {
         toast.error("You can select up to 3 positions only");
         return prev;
@@ -359,7 +412,6 @@ export default function TeacherRegister() {
       if (!data.gender) newErrors.gender = "Select gender";
       if (!data.dob) newErrors.dob = "Date of birth required";
       
-      // Check if DOB is not in future
       if (data.dob && new Date(data.dob) > new Date()) {
         newErrors.dob = "Date of birth cannot be in the future";
       }
@@ -380,7 +432,6 @@ export default function TeacherRegister() {
       if (!data.iqama) newErrors.iqama = "Select residency / Iqama status";
       if (!data.skills || data.skills.length === 0) newErrors.skills = "Please add at least one skill";
       
-      // Check if "Other" is selected without text
       if (data.positionsInterested.includes("Other") && !data.positionsOther.trim()) {
         newErrors.positionsOther = "Please specify the position";
       }
@@ -397,8 +448,11 @@ export default function TeacherRegister() {
         newErrors.skillsOther = "Please specify your skills";
       }
     } else if (s === 3) {
-      // CV is now mandatory
-      if (!data.cv) newErrors.cv = "CV is required (PDF or DOC)";
+      // ✅ Terms & Conditions checkbox validation (frontend only)
+      if (!agreedToTerms) {
+        newErrors.agreedToTerms = "You must agree to the Terms & Conditions and Privacy Policy before submitting.";
+        toast.error("Please accept the Terms & Conditions and Privacy Policy to continue.");
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -425,7 +479,6 @@ export default function TeacherRegister() {
     if (!file) return;
     
     if (key === "photo") {
-      // Create preview URL for photo
       const previewUrl = URL.createObjectURL(file);
       setData((p) => ({ 
         ...p, 
@@ -456,7 +509,6 @@ export default function TeacherRegister() {
     setData((p) => ({ ...p, latestDegreeFiles: arr }));
   };
 
-  // Add new certificate
   const addCertificate = () => {
     if (!newCertificate.name || !newCertificate.institution || !newCertificate.year) {
       toast.error("Please fill all certificate fields");
@@ -467,7 +519,6 @@ export default function TeacherRegister() {
     setNewCertificate({ name: "", institution: "", year: "" });
   };
 
-  // Remove certificate
   const removeCertificate = (index) => {
     setOtherCertificates(otherCertificates.filter((_, i) => i !== index));
   };
@@ -504,6 +555,8 @@ export default function TeacherRegister() {
 
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
+    
+    // ✅ Validate step 3 (T&C checkbox) before submitting
     if (!validateStep(3)) {
       setStep(3);
       return;
@@ -512,10 +565,8 @@ export default function TeacherRegister() {
     setSubmitting(true);
 
     try {
-      // Prepare form data for file uploads
       const formData = new FormData();
 
-      // Add basic registration data
       formData.append('email', data.email);
       formData.append('password', data.password);
       formData.append('role', 'candidate');
@@ -524,7 +575,6 @@ export default function TeacherRegister() {
       if (data.middleName) formData.append('middleName', data.middleName);
       formData.append('mobile', data.mobile);
 
-      // Add candidate-specific data
       formData.append('gender', data.gender);
       if (data.dob) formData.append('dob', data.dob);
       if (data.whatsapp) formData.append('whatsapp', data.whatsapp);
@@ -535,7 +585,6 @@ export default function TeacherRegister() {
       if (data.currentCityOther) formData.append('currentCityOther', data.currentCityOther);
       if (data.expectedSalary) formData.append('expectedSalary', data.expectedSalary);
       
-      // Append each array item individually
       data.positionsInterested.forEach(position => {
         formData.append('positionsInterested', position);
       });
@@ -566,7 +615,6 @@ export default function TeacherRegister() {
       
       if (data.extrasOther) formData.append('extrasOther', data.extrasOther);
 
-      // Add other fields
       formData.append('degree', data.degree);
       if (data.degreeOther) formData.append('degreeOther', data.degreeOther);
       if (data.universityName) formData.append('universityName', data.universityName);
@@ -585,7 +633,6 @@ export default function TeacherRegister() {
       if (data.stemCertifiedOther) formData.append('stemCertifiedOther', data.stemCertifiedOther);
       if (data.degreeAttested) formData.append('degreeAttested', data.degreeAttested);
       
-      // Add certificates as JSON string
       if (otherCertificates.length > 0) {
         formData.append('otherCertificates', JSON.stringify(otherCertificates));
       }
@@ -601,29 +648,22 @@ export default function TeacherRegister() {
       if (data.availableFrom) formData.append('availableFrom', data.availableFrom);
       if (data.otherNotes) formData.append('otherNotes', data.otherNotes);
 
-      // Add files
       if (data.photo) {
         formData.append('photo', data.photo);
       }
 
-      // CV is now mandatory
       if (data.cv) {
         formData.append('cv', data.cv);
       }
 
       if (data.latestDegreeFiles && data.latestDegreeFiles.length > 0) {
-        data.latestDegreeFiles.forEach((file, index) => {
+        data.latestDegreeFiles.forEach((file) => {
           formData.append('latestDegreeFiles', file);
         });
       }
 
-      // Log the FormData to see what's being sent
-      console.log('📤 Sending Teacher FormData:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
+      // ❗ NOTE: agreedToTerms is intentionally NOT appended — it stays frontend-only.
 
-      // Dispatch the registration action
       dispatch(registerCandidatesAction(formData));
 
     } catch (error) {
@@ -663,7 +703,6 @@ export default function TeacherRegister() {
   useEffect(() => {
     const originalAlert = window.alert;
     window.alert = (message) => {
-      // Convert alerts to toast notifications instead
       if (message && typeof message === 'string') {
         toast.error(message);
       }
@@ -739,7 +778,6 @@ export default function TeacherRegister() {
                   transition={{ duration: 0.35 }}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* First Name */}
                     <div>
                       <InputLabel htmlFor="firstName" required icon={<User className="w-4 h-4" />}>
                         First Name
@@ -754,21 +792,6 @@ export default function TeacherRegister() {
                       {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
                     </div>
 
-                    {/* Middle Name */}
-                    <div>
-                      <InputLabel htmlFor="middleName" icon={<User className="w-4 h-4" />}>
-                        Middle Name
-                      </InputLabel>
-                      <input
-                        id="middleName"
-                        value={data.middleName}
-                        onChange={(e) => handleChange("middleName", e.target.value)}
-                        className="mt-1 block w-full border-2 border-gray-200 rounded-xl p-3 transition-all duration-200 focus:border-[#0077BB] focus:ring-2 focus:ring-blue-100"
-                        placeholder="Middle name (optional)"
-                      />
-                    </div>
-
-                    {/* Last Name */}
                     <div>
                       <InputLabel htmlFor="lastName" required icon={<User className="w-4 h-4" />}>
                         Last Name
@@ -783,7 +806,6 @@ export default function TeacherRegister() {
                       {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
                     </div>
 
-                    {/* Gender */}
                     <div>
                       <InputLabel htmlFor="gender" required icon={<User className="w-4 h-4" />}>
                         Gender
@@ -802,7 +824,6 @@ export default function TeacherRegister() {
                       {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
                     </div>
 
-                    {/* Photo Upload */}
                     <div>
                       <InputLabel htmlFor="photo" icon={<User className="w-4 h-4" />}>
                         Upload Photo
@@ -832,7 +853,6 @@ export default function TeacherRegister() {
                           )}
                         </div>
                         
-                        {/* Photo Preview - Fixed to ensure images show properly */}
                         {data.photoPreview && (
                           <div className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50">
                             <img
@@ -861,19 +881,7 @@ export default function TeacherRegister() {
                               alt="Preview"
                               className="w-full h-full object-cover"
                               onLoad={(e) => {
-                                console.log("Image loaded successfully");
                                 URL.revokeObjectURL(e.target.src);
-                              }}
-                              onError={(e) => {
-                                console.error("Image failed to load");
-                                e.target.style.display = 'none';
-                                const parent = e.target.parentElement;
-                                if (parent) {
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'w-full h-full flex items-center justify-center text-gray-400 text-xs';
-                                  fallback.innerText = 'No preview';
-                                  parent.appendChild(fallback);
-                                }
                               }}
                             />
                           </div>
@@ -883,7 +891,6 @@ export default function TeacherRegister() {
                       </div>
                     </div>
 
-                    {/* Date of Birth */}
                     <div>
                       <InputLabel htmlFor="dob" required icon={<Calendar className="w-4 h-4" />}>
                         Date of Birth
@@ -899,7 +906,6 @@ export default function TeacherRegister() {
                       {errors.dob && <p className="text-red-500 text-sm mt-1">{errors.dob}</p>}
                     </div>
 
-                    {/* Email */}
                     <div>
                       <InputLabel htmlFor="email" required icon={<Mail className="w-4 h-4" />}>
                         Email
@@ -915,7 +921,6 @@ export default function TeacherRegister() {
                       {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
                     </div>
 
-                    {/* Password */}
                     <div>
                       <InputLabel htmlFor="password" required icon={<Lock className="w-4 h-4" />}>
                         Password
@@ -938,7 +943,6 @@ export default function TeacherRegister() {
                         </button>
                       </div>
                       
-                      {/* Password Strength Indicator */}
                       {data.password && (
                         <div className="mt-2">
                           <div className="flex items-center gap-2">
@@ -967,7 +971,6 @@ export default function TeacherRegister() {
                       {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
                     </div>
 
-                    {/* Confirm Password */}
                     <div>
                       <InputLabel htmlFor="confirmPassword" required icon={<Lock className="w-4 h-4" />}>
                         Confirm Password
@@ -992,7 +995,6 @@ export default function TeacherRegister() {
                       {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
                     </div>
 
-                    {/* Mobile Number - Using PhoneInput with country-specific validation */}
                     <div>
                       <InputLabel htmlFor="mobile" required icon={<User className="w-4 h-4" />}>
                         Mobile number
@@ -1011,7 +1013,6 @@ export default function TeacherRegister() {
                       {errors.mobile && <p className="text-red-500 text-sm mt-1">{errors.mobile}</p>}
                     </div>
 
-                    {/* WhatsApp Number - Using PhoneInput */}
                     <div>
                       <InputLabel htmlFor="whatsapp" icon={<User className="w-4 h-4" />}>
                         Number on Whatsapp
@@ -1029,14 +1030,14 @@ export default function TeacherRegister() {
                       </div>
                     </div>
 
-                    {/* Nationality */}
+                    {/* ✅ Nationality — now uses DEMONYMS (Pakistani, Indian, etc.) */}
                     <div>
                       <InputLabel htmlFor="nationality" required icon={<Globe className="w-4 h-4" />}>
                         Nationality
                       </InputLabel>
                       <Select
-                        options={countryOptions}
-                        value={countryOptions.find(country => country.label === data.nationality)}
+                        options={nationalityOptions}
+                        value={nationalityOptions.find(n => n.label === data.nationality)}
                         onChange={(selected) => {
                           handleChange("nationality", selected?.label || "");
                         }}
@@ -1047,7 +1048,6 @@ export default function TeacherRegister() {
                       {errors.nationality && <p className="text-red-500 text-sm mt-1">{errors.nationality}</p>}
                     </div>
 
-                    {/* Marital Status - Updated with Single Parent and Divorced */}
                     <div>
                       <InputLabel htmlFor="maritalStatus" icon={<User className="w-4 h-4" />}>
                         Marital Status
@@ -1067,7 +1067,6 @@ export default function TeacherRegister() {
                       </select>
                     </div>
 
-                    {/* Country of Residence */}
                     <div>
                       <InputLabel htmlFor="countryOfResidence" icon={<MapPin className="w-4 h-4" />}>
                         Country of Residence
@@ -1085,7 +1084,6 @@ export default function TeacherRegister() {
                       />
                     </div>
 
-                    {/* Current City */}
                     <div>
                       <InputLabel htmlFor="currentCity" icon={<MapPin className="w-4 h-4" />}>
                         Current City
@@ -1114,7 +1112,6 @@ export default function TeacherRegister() {
                       )}
                     </div>
 
-                    {/* Expected Salary */}
                     <div>
                       <InputLabel htmlFor="expectedSalary" icon={<User className="w-4 h-4" />}>
                         Your expected salary in SAR
@@ -1197,7 +1194,6 @@ export default function TeacherRegister() {
                       />
                     </div>
 
-                    {/* Total Experience */}
                     <div>
                       <InputLabel htmlFor="totalExperience" icon={<Briefcase className="w-4 h-4" />}>
                         Total experiences (approx. in years)
@@ -1217,7 +1213,6 @@ export default function TeacherRegister() {
                       </select>
                     </div>
 
-                    {/* Positions Interested */}
                     <div className="md:col-span-2">
                       <InputLabel icon={<Briefcase className="w-4 h-4" />}>
                         Which position(s) are you interested in? (select up to 3)
@@ -1238,7 +1233,6 @@ export default function TeacherRegister() {
                       </div>
                       {errors.positionsInterested && <p className="text-red-500 text-sm mt-1">{errors.positionsInterested}</p>}
                       
-                      {/* "Other" input field */}
                       {data.positionsInterested.includes("Other") && (
                         <div className="mt-3">
                           <input
@@ -1278,7 +1272,6 @@ export default function TeacherRegister() {
                       />
                     </div>
 
-                    {/* Curriculum Teaching/Taught */}
                     <div className="md:col-span-2">
                       <InputLabel icon={<GraduationCap className="w-4 h-4" />}>
                         Curriculum Teaching/Taught (select up to 3)
@@ -1299,7 +1292,6 @@ export default function TeacherRegister() {
                       </div>
                       {errors.curriculumTaught && <p className="text-red-500 text-sm mt-1">{errors.curriculumTaught}</p>}
                       
-                      {/* "Other" input field */}
                       {data.curriculumTaught.includes("Other") && (
                         <div className="mt-3">
                           <input
@@ -1423,13 +1415,11 @@ export default function TeacherRegister() {
                       )}
                     </div>
 
-                    {/* Other Diploma/Courses/Certificates */}
                     <div className="md:col-span-2">
                       <InputLabel icon={<FileText className="w-4 h-4" />}>
                         Other Diploma/Courses/Certificates
                       </InputLabel>
                       
-                      {/* Certificate Input Form */}
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-2 bg-blue-50 p-4 rounded-xl border border-blue-200">
                         <div className="md:col-span-5">
                           <input
@@ -1469,7 +1459,6 @@ export default function TeacherRegister() {
                         </div>
                       </div>
 
-                      {/* Certificate List */}
                       {otherCertificates.length > 0 && (
                         <div className="mt-4 space-y-2">
                           {otherCertificates.map((cert, index) => (
@@ -1587,7 +1576,6 @@ export default function TeacherRegister() {
                         ))}
                       </div>
                       
-                      {/* "Other" input field for Skills */}
                       {data.skills.includes("Other") && (
                         <div className="mt-3">
                           <input
@@ -1603,7 +1591,6 @@ export default function TeacherRegister() {
                       {errors.skills && <p className="text-red-500 text-sm mt-1">{errors.skills}</p>}
                     </div>
 
-                    {/* Language Skills */}
                     <div className="md:col-span-2">
                       <InputLabel icon={<Languages className="w-4 h-4" />}>
                         Language Skills
@@ -1622,7 +1609,6 @@ export default function TeacherRegister() {
                         ))}
                       </div>
                       
-                      {/* "Other" input field */}
                       {data.languages.includes("Other") && (
                         <div className="mt-3">
                           <input
@@ -1636,7 +1622,6 @@ export default function TeacherRegister() {
                       )}
                     </div>
 
-                    {/* Extra Curricular Activities */}
                     <div className="md:col-span-2">
                       <InputLabel icon={<Activity className="w-4 h-4" />}>
                         Extra Curricular Activities/Interests
@@ -1655,7 +1640,6 @@ export default function TeacherRegister() {
                         ))}
                       </div>
                       
-                      {/* "Other" input field */}
                       {data.extras.includes("Other") && (
                         <div className="mt-3">
                           <input
@@ -1709,7 +1693,6 @@ export default function TeacherRegister() {
                       )}
                     </div>
 
-                    {/* When can you join */}
                     <div className="md:col-span-2">
                       <InputLabel icon={<Calendar className="w-4 h-4" />}>
                         When can you join once selected?
@@ -1736,10 +1719,9 @@ export default function TeacherRegister() {
                   transition={{ duration: 0.35 }}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* CV Upload */}
                     <div className="md:col-span-2">
-                      <InputLabel htmlFor="cv" required icon={<FileText className="w-4 h-4" />}>
-                        Upload your CV (Mandatory) - PDF or DOC only
+                      <InputLabel htmlFor="cv"  icon={<FileText className="w-4 h-4" />}>
+                        Upload your CV  - PDF or DOC only (Max 10Mb)
                       </InputLabel>
                       <div className="mt-2 flex items-center gap-3">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -1751,7 +1733,7 @@ export default function TeacherRegister() {
                           />
                           <span className="px-4 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2">
                             <UploadCloud className="w-4 h-4" />
-                            Upload CV (Mandatory)
+                            Upload CV 
                           </span>
                         </label>
                         {data.cv && (
@@ -1771,53 +1753,8 @@ export default function TeacherRegister() {
                           </div>
                         )}
                       </div>
-                      {errors.cv && <p className="text-red-500 text-sm mt-1">{errors.cv}</p>}
                       <p className="text-xs text-red-500 mt-2">
-                        * CV upload is mandatory for application submission. Only PDF and DOC files are accepted.
-                      </p>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <InputLabel icon={<FileText className="w-4 h-4" />}>
-                        Upload copy of your Latest degree (up to 5 files) - Optional
-                      </InputLabel>
-                      <div className="mt-2">
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={(e) => handleMultiFiles(e.target.files)}
-                          multiple
-                          className="block w-full border-2 border-gray-200 rounded-xl p-3 transition-all duration-200 focus:border-[#0077BB] focus:ring-2 focus:ring-blue-100"
-                        />
-                        {data.latestDegreeFiles && data.latestDegreeFiles.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            {data.latestDegreeFiles.map((f, i) => (
-                              <div key={i} className="text-sm text-gray-700 border-2 border-green-200 bg-green-50 rounded-xl p-3 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle className="w-4 h-4 text-green-600" />
-                                  <span className="truncate max-w-[300px]">{f.name}</span>
-                                  <span className="text-xs text-gray-500">
-                                    ({(f.size / 1024).toFixed(1)} KB)
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newFiles = [...data.latestDegreeFiles];
-                                    newFiles.splice(i, 1);
-                                    setData({...data, latestDegreeFiles: newFiles});
-                                  }}
-                                  className="p-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Optional: Upload copies of your degrees, certificates, or other qualifications.
+                      Only PDF and DOC files are accepted.
                       </p>
                     </div>
 
@@ -1832,6 +1769,56 @@ export default function TeacherRegister() {
                         rows="4"
                         placeholder="Any additional information you'd like to share..."
                       />
+                    </div>
+
+                    {/* ✅ TERMS & CONDITIONS CHECKBOX — frontend only */}
+                    <div className="md:col-span-2">
+                      <div className={`rounded-xl border-2 p-4 transition-all ${
+                        errors.agreedToTerms ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
+                      }`}>
+                        <label className="flex items-start gap-3 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={agreedToTerms}
+                            onChange={(e) => {
+                              setAgreedToTerms(e.target.checked);
+                              if (e.target.checked && errors.agreedToTerms) {
+                                setErrors((prev) => {
+                                  const { agreedToTerms, ...rest } = prev;
+                                  return rest;
+                                });
+                              }
+                            }}
+                            className="mt-0.5 w-5 h-5 text-[#0077BB] focus:ring-[#0077BB] rounded cursor-pointer"
+                          />
+                          <span className="text-sm text-gray-700">
+                            I have read and agree to the{' '}
+                            <Link
+                              to="/terms-and-conditions"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[#0077BB] font-semibold underline hover:text-[#005a8f]"
+                            >
+                              Terms & Conditions
+                            </Link>{' '}
+                            and{' '}
+                            <Link
+                              to="/privacy-policy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[#0077BB] font-semibold underline hover:text-[#005a8f]"
+                            >
+                              Privacy Policy
+                            </Link>
+                            . <span className="text-red-500">*</span>
+                          </span>
+                        </label>
+                        {errors.agreedToTerms && (
+                          <p className="text-red-500 text-sm mt-2 ml-8">{errors.agreedToTerms}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -1914,7 +1901,6 @@ export default function TeacherRegister() {
           </div>
         </div>
 
-        {/* Login Link at Bottom */}
         <div className="text-center mt-6">
           <p className="text-gray-600">
             Already have an account?{' '}
@@ -1928,7 +1914,6 @@ export default function TeacherRegister() {
         </div>
       </div>
 
-      {/* Custom CSS for phone input - maintains default border style */}
       <style jsx="true">{`
         .phone-input-wrapper .custom-phone-input {
           width: 100%;

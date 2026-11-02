@@ -116,17 +116,7 @@ export default function ForgotPassword() {
         >
           {/* Brand Section */}
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] rounded-2xl flex items-center justify-center shadow-lg">
-                <Building className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] bg-clip-text text-transparent">
-                  Apex Staffing
-                </h1>
-                <p className="text-lg text-gray-600">Network</p>
-              </div>
-            </div>
+          
             
             <div className="space-y-4">
               <h2 className="text-3xl font-bold text-gray-900 leading-tight">
@@ -361,7 +351,7 @@ export default function ForgotPassword() {
                         </Link>
                       ) : (
                         <Link
-                          to="/candidate-login"
+                          to="/teacher-login"
                           className="font-semibold text-[#0077BB] hover:text-[#00AEEF] transition-colors duration-200"
                         >
                           Back to Candidate Login
@@ -416,7 +406,7 @@ export default function ForgotPassword() {
                       Resend Instructions
                     </button>
                     
-                    <Link to={userType === 'school' ? "/school-login" : "/candidate-login"}>
+                    <Link to={userType === 'school' ? "/school-login" : "/teacher-login"}>
                       <button className="w-full flex justify-center items-center gap-3 py-3 px-4 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200">
                         {getUserTypeIcon()}
                         Back to {getUserTypeDisplay()} Login

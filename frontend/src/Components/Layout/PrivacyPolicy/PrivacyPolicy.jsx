@@ -1,7 +1,7 @@
 // src/pages/PrivacyPolicy.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield,
   Lock,
@@ -37,14 +37,46 @@ import {
   HelpCircle,
   MessageSquare,
   Award,
-  Sparkles
+  Sparkles,
+  Camera,
+  Image,
+  UserCircle2,
+  Info,
+  X
 } from 'lucide-react';
+
+const CONSENT_STORAGE_KEY = 'photoDisplayConsent';
 
 const PrivacyPolicy = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('privacy');
+  const [photoConsent, setPhotoConsent] = useState(false);
+  const [consentSaved, setConsentSaved] = useState(false);
 
-  // Navigation handlers
+  // Load saved consent on mount (frontend-only persistence)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CONSENT_STORAGE_KEY);
+      if (saved === 'true') {
+        setPhotoConsent(true);
+        setConsentSaved(true);
+      }
+    } catch (e) {
+      // localStorage may be unavailable in some browsers
+    }
+  }, []);
+
+  const handleConsentChange = (checked) => {
+    setPhotoConsent(checked);
+    try {
+      localStorage.setItem(CONSENT_STORAGE_KEY, checked ? 'true' : 'false');
+      setConsentSaved(true);
+      setTimeout(() => setConsentSaved(false), 2500);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const navigateToContact = () => {
     navigate('/contact-us');
   };
@@ -199,6 +231,15 @@ const PrivacyPolicy = () => {
       }
     },
     {
+      id: 'photo-consent',
+      title: 'Photo & Profile Consent',
+      icon: <Camera className="w-6 h-6" />,
+      color: 'from-fuchsia-500 to-pink-500',
+      content: {
+        intro: 'Consent for the collection, processing, and public display of your profile photograph and selected professional information.',
+      }
+    },
+    {
       id: 'careers',
       title: 'Careers',
       icon: <Award className="w-6 h-6" />,
@@ -215,13 +256,12 @@ const PrivacyPolicy = () => {
     <div className="font-[Parkinsans] overflow-hidden mt-30">
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white overflow-hidden">
-        {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-10 left-10 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
           <div className="absolute top-1/3 right-1/3 w-64 h-64 bg-cyan-500/10 rounded-full blur-2xl"></div>
         </div>
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -238,16 +278,16 @@ const PrivacyPolicy = () => {
               <Shield className="w-5 h-5 text-yellow-300" />
               <span className="text-sm font-medium">Your Privacy & Security Matter to Us</span>
             </motion.div>
-            
+
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
               Privacy Policy & <span className="text-[#FFD700]">Terms of Use</span>
             </h1>
-            
+
             <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto leading-relaxed">
               Learn how we protect your data and the terms that govern your use of TeachingPath platform.
               We're committed to transparency and compliance with Saudi regulations.
             </p>
-            
+
             <button
               onClick={navigateToHome}
               className="px-8 py-4 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white font-bold rounded-2xl hover:bg-white hover:text-blue-900 transition-all duration-300 inline-flex items-center gap-2"
@@ -258,8 +298,6 @@ const PrivacyPolicy = () => {
           </motion.div>
         </div>
       </section>
-
-  
 
       {/* Main Content */}
       <section className="py-20 bg-gradient-to-br from-slate-50 to-blue-50">
@@ -313,18 +351,17 @@ const PrivacyPolicy = () => {
                   <div className={`inline-flex p-4 bg-gradient-to-r ${section.color} rounded-2xl mb-8`}>
                     <div className="text-white">{section.icon}</div>
                   </div>
-                  
+
                   <h2 className="text-3xl font-bold text-gray-900 mb-6">{section.title}</h2>
-                  
+
                   {/* Intro Text */}
                   <p className="text-lg text-gray-600 mb-8 leading-relaxed">
                     {section.content.intro}
                   </p>
 
-                  {/* Dynamic Content Based on Section */}
+                  {/* ================= PRIVACY ================= */}
                   {section.id === 'privacy' && (
                     <>
-                      {/* Privacy Principles */}
                       <div className="grid md:grid-cols-2 gap-6 mb-10">
                         {section.content.principles.map((principle, idx) => (
                           <motion.div
@@ -345,7 +382,6 @@ const PrivacyPolicy = () => {
                         ))}
                       </div>
 
-                      {/* Your Rights Section */}
                       <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-8 mb-8">
                         <h3 className="text-2xl font-bold text-gray-900 mb-4">{section.content.rights.title}</h3>
                         <p className="text-gray-700 mb-4">{section.content.rights.description}</p>
@@ -361,9 +397,9 @@ const PrivacyPolicy = () => {
                     </>
                   )}
 
+                  {/* ================= TERMS ================= */}
                   {section.id === 'terms' && (
                     <>
-                      {/* Terms List */}
                       <div className="space-y-4 mb-8">
                         {section.content.terms.map((term, idx) => (
                           <motion.div
@@ -388,7 +424,6 @@ const PrivacyPolicy = () => {
                         ))}
                       </div>
 
-                      {/* Updates Note */}
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
                         <div className="flex items-start gap-3">
                           <RefreshCw className="w-5 h-5 text-amber-600 flex-shrink-0 mt-1" />
@@ -398,9 +433,9 @@ const PrivacyPolicy = () => {
                     </>
                   )}
 
+                  {/* ================= COOKIES ================= */}
                   {section.id === 'cookies' && (
                     <>
-                      {/* Cookie Purposes */}
                       <div className="grid md:grid-cols-3 gap-6 mb-8">
                         {section.content.purposes.map((purpose, idx) => (
                           <motion.div
@@ -421,7 +456,6 @@ const PrivacyPolicy = () => {
                         ))}
                       </div>
 
-                      {/* Cookie Control */}
                       <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6">
                         <div className="flex items-start gap-3">
                           <Settings className="w-5 h-5 text-purple-600 flex-shrink-0 mt-1" />
@@ -431,9 +465,9 @@ const PrivacyPolicy = () => {
                     </>
                   )}
 
+                  {/* ================= SECURITY ================= */}
                   {section.id === 'security' && (
                     <>
-                      {/* Security Measures */}
                       <div className="grid md:grid-cols-2 gap-6 mb-8">
                         {section.content.measures.map((measure, idx) => (
                           <motion.div
@@ -454,7 +488,6 @@ const PrivacyPolicy = () => {
                         ))}
                       </div>
 
-                      {/* User Responsibility */}
                       <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
                         <div className="flex items-start gap-3">
                           <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-1" />
@@ -464,11 +497,147 @@ const PrivacyPolicy = () => {
                     </>
                   )}
 
+                  {/* ============ PHOTO & PROFILE CONSENT ============ */}
+                  {section.id === 'photo-consent' && (
+                    <div className="space-y-6">
+                      {/* Consent text block */}
+                      <div className="rounded-2xl border-2 border-fuchsia-200 bg-gradient-to-br from-fuchsia-50 via-pink-50 to-rose-50 p-6 md:p-8">
+                        <div className="flex items-start gap-4 mb-6">
+                          <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-500 flex items-center justify-center shadow-md">
+                            <Camera className="w-7 h-7 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">
+                              Consent for Public Display of Photograph & Profile
+                            </h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Please read carefully — this consent is voluntary.
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="text-gray-800 leading-relaxed mb-6 text-[15px]">
+                          I voluntarily consent to the collection, processing, and public display of my
+                          profile photograph and selected professional information for the purpose of
+                          presenting my teaching profile to parents, students, schools, educational
+                          institutions, and potential clients.
+                        </p>
+
+                        <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                          <Info className="w-5 h-5 text-fuchsia-600" />
+                          I understand that:
+                        </h4>
+
+                        <ul className="space-y-3 mb-6">
+                          <li className="flex items-start gap-3">
+                            <CheckCircle className="w-5 h-5 text-fuchsia-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-gray-700">
+                              My photograph may be visible to registered users and/or public website visitors.
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <CheckCircle className="w-5 h-5 text-fuchsia-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-gray-700">
+                              Providing consent for public display of my photograph is voluntary.
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <CheckCircle className="w-5 h-5 text-fuchsia-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-gray-700">
+                              My information will be processed in accordance with the website's{' '}
+                              <Link to="/privacy-policy" className="text-fuchsia-600 font-semibold underline hover:text-fuchsia-800">
+                                Privacy Policy
+                              </Link>{' '}
+                              and applicable Saudi Personal Data Protection Law requirements.
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <CheckCircle className="w-5 h-5 text-fuchsia-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-gray-700">
+                              I may withdraw my consent and request removal of my photograph at any time by
+                              contacting the website administration.
+                            </span>
+                          </li>
+                        </ul>
+
+                        <p className="text-gray-700 italic mb-6">
+                          By selecting this checkbox, I confirm that I have read, understood, and voluntarily
+                          agreed to the above.
+                        </p>
+
+                        {/* Consent checkbox */}
+                        <label
+                          htmlFor="photo-consent-checkbox"
+                          className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all select-none ${
+                            photoConsent
+                              ? 'border-fuchsia-400 bg-fuchsia-50'
+                              : 'border-gray-300 bg-white hover:border-fuchsia-300'
+                          }`}
+                        >
+                          <input
+                            id="photo-consent-checkbox"
+                            type="checkbox"
+                            checked={photoConsent}
+                            onChange={(e) => handleConsentChange(e.target.checked)}
+                            className="mt-0.5 w-5 h-5 rounded text-fuchsia-600 focus:ring-fuchsia-500 cursor-pointer flex-shrink-0"
+                          />
+                          <span className="text-sm md:text-[15px] text-gray-800 font-medium leading-relaxed">
+                            I voluntarily consent to the collection, processing, and public display of my profile
+                            photograph and selected professional information as described above.
+                          </span>
+                        </label>
+
+                        {/* Status message */}
+                        <AnimatePresence>
+                          {consentSaved && photoConsent && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              className="mt-4 flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3"
+                            >
+                              <CheckCircle className="w-5 h-5" />
+                              <span className="text-sm font-medium">Your consent has been recorded.</span>
+                            </motion.div>
+                          )}
+                          {consentSaved && !photoConsent && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              className="mt-4 flex items-center gap-2 text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3"
+                            >
+                              <AlertCircle className="w-5 h-5" />
+                              <span className="text-sm font-medium">Consent withdrawn.</span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        {/* Withdraw / contact CTA */}
+                        <div className="mt-6 pt-6 border-t border-fuchsia-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <p className="text-sm text-gray-600">
+                            Want to withdraw or have questions? Contact us at{' '}
+                            <a href="mailto:info@theteachingpath.com" className="text-fuchsia-600 font-semibold hover:underline">
+                              info@theteachingpath.com
+                            </a>
+                          </p>
+                          <button
+                            onClick={navigateToContact}
+                            className="px-5 py-3 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 inline-flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            Contact Admin
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ================= CAREERS ================= */}
                   {section.id === 'careers' && (
                     <div className="space-y-6">
                       <p className="text-lg text-gray-700 mb-6">{section.content.opportunity}</p>
-                      
-                      {/* Commitment Box */}
+
                       <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-8">
                         <div className="flex items-start gap-4">
                           <div className={`inline-flex p-4 bg-gradient-to-r ${section.color} rounded-xl`}>
@@ -481,7 +650,6 @@ const PrivacyPolicy = () => {
                         </div>
                       </div>
 
-                      {/* CTA Button */}
                       <div className="text-center mt-8">
                         <button
                           onClick={() => window.location.href = 'mailto:jobs@theteachingpath.com'}
@@ -495,8 +663,8 @@ const PrivacyPolicy = () => {
                     </div>
                   )}
 
-                  {/* Contact Info - Shown for all sections except careers */}
-                  {section.id !== 'careers' && (
+                  {/* Contact Info - Shown for all sections except careers & photo-consent */}
+                  {section.id !== 'careers' && section.id !== 'photo-consent' && (
                     <div className="mt-10 pt-8 border-t border-gray-200">
                       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
@@ -531,7 +699,7 @@ const PrivacyPolicy = () => {
           <h3 className="text-2xl font-bold text-gray-900 text-center mb-12">
             Additional Resources
           </h3>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
@@ -567,7 +735,6 @@ const PrivacyPolicy = () => {
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 mb-2">{resource.title}</h4>
                 <p className="text-gray-600 mb-4">{resource.desc}</p>
-            
               </motion.a>
             ))}
           </div>
@@ -587,8 +754,6 @@ const PrivacyPolicy = () => {
 };
 
 // Helper component for AnimatePresence
-import { AnimatePresence } from 'framer-motion';
-
 // Missing icon import
 const Search = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -605,4 +770,4 @@ const Settings = ({ className }) => (
   </svg>
 );
 
-export default PrivacyPolicy;
+export default PrivacyPolicy; 

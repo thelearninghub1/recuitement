@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Briefcase, Users, BarChart3, MessageSquare, 
-  Settings, Bell, Plus, ArrowLeft
+  Settings, Bell, Plus, ArrowLeft, Database
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getMyJobs } from '../../actions/jobActions';
+import { getMyJobs, getJobApplications } from '../../actions/jobActions';
 import JobPostForm from './JobPostForm';
 
 const SchoolDashboard = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [showNewJobForm, setShowNewJobForm] = useState(false);
+  
+  // State for applications count
+  const [totalApplications, setTotalApplications] = useState(0);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
 
   // Get jobs from Redux state
   const { jobs = [], loading: jobsLoading } = useSelector((state) => state.allJobs || { jobs: [] });
   const { user } = useSelector((state) => state.loginUser);
+  
+  // Get applications from Redux state
+  const applicationsState = useSelector((state) => state.applications || {});
+  const { applications = [], loading: appLoading } = applicationsState;
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -26,6 +35,59 @@ const SchoolDashboard = () => {
   useEffect(() => {
     dispatch(getMyJobs());
   }, [dispatch]);
+
+  // Fetch applications for each job and calculate total
+  useEffect(() => {
+    const fetchAllApplications = async () => {
+      if (jobs.length === 0) {
+        setTotalApplications(0);
+        return;
+      }
+
+      setApplicationsLoading(true);
+      let total = 0;
+
+      try {
+        // Fetch applications for each job
+        for (const job of jobs) {
+          await dispatch(getJobApplications(job._id));
+        }
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      } finally {
+        setApplicationsLoading(false);
+      }
+    };
+
+    fetchAllApplications();
+  }, [jobs, dispatch]);
+
+  // Update total applications count whenever applications state changes
+  useEffect(() => {
+    if (applications && Array.isArray(applications)) {
+      setTotalApplications(applications.length);
+    }
+  }, [applications]);
+
+  // Alternative: Store all applications in a map
+  const [allApplications, setAllApplications] = useState([]);
+  
+  useEffect(() => {
+    // When applications change, add them to allApplications if not already there
+    if (applications && applications.length > 0) {
+      // Check if we already have these applications
+      const existingIds = new Set(allApplications.map(app => app._id));
+      const newApps = applications.filter(app => !existingIds.has(app._id));
+      if (newApps.length > 0) {
+        setAllApplications(prev => [...prev, ...newApps]);
+      }
+    }
+  }, [applications]);
+
+  // Calculate total from allApplications
+  useEffect(() => {
+    setTotalApplications(allApplications.length);
+  }, [allApplications]);
 
   const handleJobSubmit = (jobData) => {
     console.log('Job submitted:', jobData);
@@ -80,33 +142,16 @@ const SchoolDashboard = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Applications Card (if you have applications data) */}
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Applications</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
-                    </div>
-                    <div className="bg-purple-500 rounded-lg p-2">
-                      <Users className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Views Card (if you have views data) */}
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">Total Views</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
-                    </div>
-                    <div className="bg-orange-500 rounded-lg p-2">
-                      <BarChart3 className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                </div>
               </div>
+
+              {/* Teachers Database Button */}
+              <button
+                onClick={() => navigate('/teachers-database')}
+                className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+              >
+                <Database className="w-5 h-5" />
+                Browse Teachers Database
+              </button>
 
               {/* Recent Jobs List */}
               {!jobsLoading && jobs.length > 0 && (
@@ -198,7 +243,7 @@ const SchoolDashboard = () => {
             ) : (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 {/* Quick Stats Summary */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-blue-50 rounded-lg p-4 text-center">
                     <p className="text-2xl font-bold text-blue-600">{totalJobs}</p>
                     <p className="text-sm text-gray-600">Total Jobs</p>
@@ -206,10 +251,6 @@ const SchoolDashboard = () => {
                   <div className="bg-green-50 rounded-lg p-4 text-center">
                     <p className="text-2xl font-bold text-green-600">{activeJobs}</p>
                     <p className="text-sm text-gray-600">Active</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
-                    <p className="text-2xl font-bold text-gray-600">{totalJobs - activeJobs}</p>
-                    <p className="text-sm text-gray-600">Inactive</p>
                   </div>
                 </div>
 
@@ -226,27 +267,34 @@ const SchoolDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {jobs.map((job) => (
-                      <div key={job._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-semibold text-gray-800">
-                              {job.jobTitle === 'Other' && job.jobTitleOther 
-                                ? job.jobTitleOther 
-                                : job.jobTitle}
-                            </h4>
-                            <p className="text-sm text-gray-500 mt-1">{job.location || job.city}</p>
+                    {jobs.map((job) => {
+                      // Get application count for this specific job from allApplications
+                      const jobAppCount = allApplications.filter(app => app.job?._id === job._id || app.job === job._id).length;
+                      return (
+                        <div key={job._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-semibold text-gray-800">
+                                {job.jobTitle === 'Other' && job.jobTitleOther 
+                                  ? job.jobTitleOther 
+                                  : job.jobTitle}
+                              </h4>
+                              <p className="text-sm text-gray-500 mt-1">{job.location || job.city}</p>
+                              <p className="text-xs text-purple-600 mt-1">
+                                {jobAppCount} application{jobAppCount !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                              job.status === 'active' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {job.status || 'Active'}
+                            </span>
                           </div>
-                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                            job.status === 'active' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {job.status || 'Active'}
-                          </span>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -312,6 +360,15 @@ const SchoolDashboard = () => {
                   );
                 })}
               </ul>
+
+              {/* Teachers Database Button in Sidebar */}
+              <button
+                onClick={() => navigate('/teachers-database')}
+                className="mt-4 w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+              >
+                <Database className="w-5 h-5" />
+                <span className="font-medium">Teachers Database</span>
+              </button>
             </nav>
           </div>
 

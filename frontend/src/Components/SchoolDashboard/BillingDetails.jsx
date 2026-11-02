@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   FaUniversity, 
@@ -29,6 +29,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { submitPayment, resetSubmitPayment, clearPaymentErrors } from '../../actions/paymentActions';
 import { SUBMIT_PAYMENT_RESET } from '../../constants/paymentConstants';
+import { getMySubscription } from '../../actions/subscriptionActions';
 
 const BillingDetails = () => {
   const navigate = useNavigate();
@@ -39,6 +40,9 @@ const BillingDetails = () => {
   const submitPaymentState = useSelector((state) => state.submitPayment);
   const { loading: submitLoading, success: submitSuccess, error: submitError, payment: submittedPayment } = submitPaymentState;
   
+  // Get subscription data from Redux (same as MyMembership)
+  const { subscription, loading: subscriptionLoading } = useSelector((state) => state.getMySubscription);
+  
   // Membership status state
   const [membershipStatus, setMembershipStatus] = useState(null);
   const [statusCheckLoading, setStatusCheckLoading] = useState(false);
@@ -47,6 +51,7 @@ const BillingDetails = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [referenceNumber, setReferenceNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
+  const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState({
     planId: null,
     planName: 'Professional Plan',
@@ -54,6 +59,9 @@ const BillingDetails = () => {
     currency: 'PKR',
     duration: 'yearly'
   });
+
+  // Polling interval reference
+  const pollingInterval = useRef(null);
 
   // Check if user has pending payment or approved membership
   useEffect(() => {
@@ -69,9 +77,196 @@ const BillingDetails = () => {
       }
     }
 
-    // Check membership status from localStorage
+    // First check localStorage status
     checkUserMembershipStatus();
+    
+    // Then fetch subscription from API to get latest status
+    fetchSubscriptionAndCheckStatus();
+
+    // Start polling for status updates every 10 seconds
+    startPolling();
+
+    // Cleanup polling on unmount
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
+    };
   }, [location]);
+
+  // Fetch subscription and check status
+  const fetchSubscriptionAndCheckStatus = async () => {
+    try {
+      await dispatch(getMySubscription());
+      // The subscription data will be available in Redux state
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    }
+  };
+
+  // Check subscription status and clear localStorage if needed
+  const checkSubscriptionStatus = () => {
+    // Get subscription from Redux state
+    const subscriptionData = subscription;
+    if (!subscriptionData) return false;
+
+    // Get pending submission from localStorage
+    const pendingSubmission = localStorage.getItem('pendingPaymentSubmission');
+    if (!pendingSubmission) {
+      console.log('No pending submission found in localStorage');
+      return false;
+    }
+
+    try {
+      const pendingData = JSON.parse(pendingSubmission);
+      console.log('📦 Pending data from localStorage:', pendingData);
+      console.log('📋 Subscription data from Redux:', subscriptionData);
+      
+      // Get the reference number from pending data
+      const pendingRefNumber = pendingData.referenceNumber || 
+                              pendingData.transactionId || 
+                              pendingData.reference;
+      console.log('🔑 Pending Reference Number:', pendingRefNumber);
+      
+      // Get reference number from subscription data
+      const subscriptionRefNumber = subscriptionData.referenceNumber || 
+                                    subscriptionData.transactionId || 
+                                    subscriptionData.reference ||
+                                    subscriptionData.paymentReference ||
+                                    subscriptionData.transactionReference;
+      console.log('🔑 Subscription Reference Number:', subscriptionRefNumber);
+      
+      // Check if both reference numbers exist and match
+      const hasMatchingReference = pendingRefNumber && subscriptionRefNumber && 
+                                   pendingRefNumber.toString().trim().toLowerCase() === 
+                                   subscriptionRefNumber.toString().trim().toLowerCase();
+      
+      console.log('🔗 Do references match?', hasMatchingReference);
+      
+      // Check subscription status (same as MyMembership)
+      const status = subscriptionData.status?.toLowerCase() || '';
+      console.log('📊 Subscription status:', status);
+      
+      // Check if status is active/approved
+      const isApproved = status === 'active' || 
+                        status === 'approved' ||
+                        status === 'confirmed' ||
+                        status === 'completed' ||
+                        subscriptionData.isActive === true ||
+                        subscriptionData.isApproved === true;
+      
+      console.log('✅ Is subscription approved?', isApproved);
+      
+      // Check if status is denied/expired/rejected
+      const isDenied = status === 'denied' || 
+                      status === 'expired' ||
+                      status === 'rejected' ||
+                      status === 'cancelled' ||
+                      status === 'failed' ||
+                      status === 'declined' ||
+                      subscriptionData.isActive === false;
+
+      console.log('❌ Is subscription denied?', isDenied);
+      
+      // Check if status is pending
+      const isPending = status === 'pending' || 
+                       status === 'under_review' ||
+                       status === 'in_progress';
+
+      console.log('⏳ Is subscription pending?', isPending);
+
+      // If subscription is approved AND has matching reference
+      if (isApproved && hasMatchingReference) {
+        console.log('✅✅ APPROVED! Clearing localStorage...');
+        // Clear localStorage
+        localStorage.removeItem('pendingPaymentSubmission');
+        localStorage.removeItem('selectedMembershipPlan');
+        localStorage.setItem('membershipApproved', 'true');
+        localStorage.setItem('membershipApprovedAt', new Date().toISOString());
+        
+        // Verify removal
+        const checkPending = localStorage.getItem('pendingPaymentSubmission');
+        console.log('🧹 After removal - pendingPaymentSubmission exists?', !!checkPending);
+        
+        setMembershipStatus({
+          status: 'approved',
+          message: 'Your membership is active!',
+          approvedAt: new Date().toISOString()
+        });
+        
+        // Stop polling
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
+          pollingInterval.current = null;
+        }
+        
+        toast.success('Your membership has been approved! 🎉');
+        return true;
+      }
+      
+      // If subscription is denied AND has matching reference
+      if (isDenied && hasMatchingReference) {
+        console.log('❌❌ DENIED! Clearing localStorage...');
+        // Clear localStorage
+        localStorage.removeItem('pendingPaymentSubmission');
+        localStorage.removeItem('selectedMembershipPlan');
+        localStorage.removeItem('membershipApproved');
+        
+        // Verify removal
+        const checkPending = localStorage.getItem('pendingPaymentSubmission');
+        console.log('🧹 After removal - pendingPaymentSubmission exists?', !!checkPending);
+        
+        setMembershipStatus(null);
+        
+        // Stop polling
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
+          pollingInterval.current = null;
+        }
+        
+        toast.warning('Your payment was denied. Please contact support.');
+        return true;
+      }
+      
+      // If subscription is still pending
+      if (isPending) {
+        console.log('⏳ Subscription still pending');
+        // Keep the pending status
+        return false;
+      }
+      
+      console.log('No status change detected');
+      return false;
+      
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      return false;
+    }
+  };
+
+  // Start polling for membership status updates
+  const startPolling = () => {
+    // Clear any existing interval
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+      pollingInterval.current = null;
+    }
+
+    // Only start polling if there's a pending submission
+    const pendingSubmission = localStorage.getItem('pendingPaymentSubmission');
+    if (pendingSubmission) {
+      console.log('🔄 Starting polling for membership status...');
+      pollingInterval.current = setInterval(() => {
+        console.log('⏰ Polling: Checking subscription status...');
+        // Fetch subscription again to check status
+        dispatch(getMySubscription()).then(() => {
+          // After fetch, check the updated status
+          checkSubscriptionStatus();
+        });
+      }, 10000); // Check every 10 seconds
+    }
+  };
 
   const checkUserMembershipStatus = () => {
     setStatusCheckLoading(true);
@@ -118,11 +313,14 @@ const BillingDetails = () => {
       const pendingData = {
         submittedAt: new Date().toISOString(),
         referenceNumber: referenceNumber,
+        transactionId: referenceNumber,
         planName: selectedPlan.planName,
         amount: selectedPlan.amount
       };
       localStorage.setItem('pendingPaymentSubmission', JSON.stringify(pendingData));
       localStorage.removeItem('selectedMembershipPlan');
+      
+      console.log('💾 Saved pending submission to localStorage:', pendingData);
       
       // Update membership status
       setMembershipStatus({
@@ -133,6 +331,9 @@ const BillingDetails = () => {
         planName: selectedPlan.planName,
         amount: selectedPlan.amount
       });
+
+      // Start polling for status updates
+      startPolling();
       
       // Reset form state after 5 seconds
       setTimeout(() => {
@@ -140,6 +341,14 @@ const BillingDetails = () => {
       }, 5000);
     }
   }, [submitSuccess, referenceNumber, selectedPlan, dispatch]);
+
+  // Check subscription status whenever subscription data changes in Redux
+  useEffect(() => {
+    if (subscription) {
+      console.log('🔄 Subscription data updated in Redux, checking status...');
+      checkSubscriptionStatus();
+    }
+  }, [subscription]);
 
   // Handle submit error
   useEffect(() => {
@@ -227,14 +436,33 @@ const BillingDetails = () => {
   };
 
   const openWhatsApp = () => {
-    window.open('https://wa.me/923001234567?text=Hi%2C%20I%20need%20help%20with%20my%20payment%20for%20membership', '_blank');
+    window.open('https://wa.me/00966503865055?text=Hi%2C%20I%20need%20help%20with%20my%20payment%20for%20membership', '_blank');
   };
 
   // Clear pending submission (for testing purposes)
   const clearPendingSubmission = () => {
     localStorage.removeItem('pendingPaymentSubmission');
+    localStorage.removeItem('selectedMembershipPlan');
+    localStorage.removeItem('membershipApproved');
     setMembershipStatus(null);
     toast.info('Pending submission cleared');
+    
+    // Stop polling
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+      pollingInterval.current = null;
+    }
+    
+    console.log('🧹 Manually cleared all membership-related localStorage items');
+  };
+
+  // Function to handle image preview modal
+  const handlePreviewImage = () => {
+    if (previewUrl && !previewUrl.includes('pdf')) {
+      setShowModal(true);
+    } else if (previewUrl && previewUrl.includes('pdf')) {
+      window.open(previewUrl, '_blank');
+    }
   };
 
   // Show pending approval message (persistent until approved)
@@ -249,6 +477,14 @@ const BillingDetails = () => {
           <p className="text-gray-600 text-center mb-6">
             Thank you for your payment submission. Our team is reviewing your payment proof.
           </p>
+          
+          {/* Auto-refresh status indicator */}
+          <div className="text-center mb-4">
+            <p className="text-xs text-gray-400 flex items-center justify-center gap-2">
+              <FaSpinner className="animate-spin" />
+              Checking for status updates...
+            </p>
+          </div>
           
           {/* Pending Message Box */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6">
@@ -330,7 +566,7 @@ const BillingDetails = () => {
           </div>
           
           <p className="text-xs text-gray-400 text-center mt-4">
-            You will be redirected to dashboard. This page will show the approval status until your membership is activated.
+            This page auto-refreshes to check your payment status.
           </p>
         </div>
       </div>
@@ -339,13 +575,17 @@ const BillingDetails = () => {
 
   // Show approved membership message
   if (membershipStatus?.status === 'approved') {
+    // Clear localStorage when membership is approved (double-check)
+    localStorage.removeItem('pendingPaymentSubmission');
+    localStorage.removeItem('selectedMembershipPlan');
+    
     return (
       <div className="min-h-screen mt-30 bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center animate-in zoom-in-95 duration-300">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <FaCheck className="text-green-600 text-5xl" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">Membership Active!</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">Membership Active! 🎉</h2>
           <p className="text-gray-600 mb-6">
             Your membership has been approved and is now active.
           </p>
@@ -418,8 +658,40 @@ const BillingDetails = () => {
 
   // Original Billing Form (shown when no pending/approved status)
   return (
-    <div className="min-h-screen mt-30 bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Status Banner - Show if there's any pending submission warning */}
+    <div className="min-h-screen mt-20 bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Image Preview Modal */}
+      {showModal && previewUrl && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 mt-30"
+          onClick={() => setShowModal(false)}
+        >
+          <div 
+            className="relative max-w-4xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-900 bg-white rounded-full p-2 shadow-lg z-10"
+            >
+              <FaTimes className="text-2xl" />
+            </button>
+            <div className="p-4">
+              <img 
+                src={previewUrl} 
+                alt="Payment proof preview" 
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <p className="text-sm text-gray-600 text-center">
+                Click outside to close
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Banner */}
       {membershipStatus && membershipStatus.status !== 'pending' && membershipStatus.status !== 'approved' && (
         <div className="bg-yellow-50 border-b border-yellow-200">
           <div className="max-w-7xl mx-auto px-6 py-3">
@@ -700,7 +972,7 @@ const BillingDetails = () => {
                           <div className="flex gap-2">
                             <button
                               type="button"
-                              onClick={() => previewUrl && !previewUrl.includes('pdf') && window.open(previewUrl, '_blank')}
+                              onClick={handlePreviewImage}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Preview"
                             >

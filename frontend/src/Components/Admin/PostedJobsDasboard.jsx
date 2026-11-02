@@ -27,7 +27,13 @@ import {
   FaClock,
   FaUserCircle,
   FaFilePdf,
-  FaFileWord
+  FaFileWord,
+  FaGraduationCap,
+  FaBookOpen,
+  FaGlobe,
+  FaClock as FaClockIcon,
+  FaDollarSign,
+  FaIdCard
 } from 'react-icons/fa';
 import { 
   getJobs, 
@@ -42,8 +48,28 @@ import { useNavigate } from 'react-router-dom';
 import { allUserAction } from '../../actions/userActions';
 
 // Helper: get backend base URL
-//const API_BASE_URL =  'http://localhost:5000';
-const API_BASE_URL =  '';
+const API_BASE_URL = '';
+
+// Helper function to get display job title
+const getDisplayJobTitle = (job) => {
+  if (!job) return 'Untitled Job';
+  if (job.jobTitle === 'Other' && job.jobTitleOther) {
+    return job.jobTitleOther;
+  }
+  return job.jobTitle || 'Untitled Job';
+};
+
+// Helper function to get display job title with optional suffix
+const getDisplayJobTitleWithSuffix = (job) => {
+  if (!job) return 'Untitled Job';
+  if (job.jobTitle === 'Other' && job.jobTitleOther) {
+    return job.jobTitleOther;
+  }
+  if (job.jobTitle !== 'Other' && job.jobTitleOther) {
+    return `${job.jobTitle} (${job.jobTitleOther})`;
+  }
+  return job.jobTitle || 'Untitled Job';
+};
 
 const PostedJobsDashboard = () => {
   const dispatch = useDispatch();
@@ -107,27 +133,43 @@ const PostedJobsDashboard = () => {
   const [tempStatusFilter, setTempStatusFilter] = useState('all');
   const [tempTypeFilter, setTempTypeFilter] = useState('all');
   const [shouldRefreshPage, setShouldRefreshPage] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Load all jobs and users on component mount
   useEffect(() => {
     const loadData = async () => {
+      if (initialLoadDone) return;
+      
       setIsLoading(true);
       try {
+        // Check if data already exists in Redux store
+        if (jobs && jobs.length > 0 && allUsers && allUsers.length > 0) {
+          // Data already loaded, just update state
+          setDataLoaded(true);
+          setIsLoading(false);
+          setInitialLoadDone(true);
+          return;
+        }
+        
         await dispatch(getJobs());
         await dispatch(allUserAction());
+        setDataLoaded(true);
+        setInitialLoadDone(true);
       } catch (error) {
         console.error('Error loading data:', error);
+        toast.error('Failed to load jobs data');
       } finally {
         setIsLoading(false);
       }
     };
     
     loadData();
-  }, [dispatch]);
+  }, [dispatch, jobs, allUsers, initialLoadDone]);
 
   // Extract schools from users and match with jobs
   useEffect(() => {
-    if (allUsers && allUsers.length > 0) {
+    if (allUsers && allUsers.length > 0 && jobs && jobs.length > 0) {
       // Filter only school users
       const schools = allUsers.filter(user => user.role === 'school');
       setAllSchools(schools);
@@ -151,52 +193,51 @@ const PostedJobsDashboard = () => {
       });
       
       // Match jobs with their schools
-      if (jobs && jobs.length > 0) {
-        const jobsWithSchoolInfo = jobs.map(job => {
-          let schoolInfo = {
-            name: 'Unknown School',
-            email: '',
-            phone: '',
-            city: 'Unknown',
-            country: 'Unknown',
-            id: null
-          };
+      const jobsWithSchoolInfo = jobs.map(job => {
+        let schoolInfo = {
+          name: 'Unknown School',
+          email: '',
+          phone: '',
+          city: 'Unknown',
+          country: 'Unknown',
+          id: null
+        };
+        
+        // Try to find school by ID
+        if (job.school) {
+          let schoolId;
           
-          // Try to find school by ID
-          if (job.school) {
-            let schoolId;
-            
-            // Handle different school ID formats
-            if (typeof job.school === 'object') {
-              if (job.school.$oid) schoolId = job.school.$oid;
-              else if (job.school._id) schoolId = job.school._id;
-              else if (job.school.id) schoolId = job.school.id;
-            } else {
-              schoolId = job.school;
-            }
-            
-            if (schoolId && schoolMap[schoolId]) {
-              schoolInfo = schoolMap[schoolId];
-            } else if (job.schoolName) {
-              // If no school found in map but job has schoolName, use that
-              schoolInfo.name = job.schoolName;
-            } else if (job.applicationEmail) {
-              // Try to extract school name from email
-              const domain = job.applicationEmail.split('@')[1];
-              if (domain) {
-                schoolInfo.name = domain.split('.')[0].replace(/(^\w|\s\w)/g, m => m.toUpperCase()) + ' School';
-              }
-            }
+          // Handle different school ID formats
+          if (typeof job.school === 'object') {
+            if (job.school.$oid) schoolId = job.school.$oid;
+            else if (job.school._id) schoolId = job.school._id;
+            else if (job.school.id) schoolId = job.school.id;
+          } else {
+            schoolId = job.school;
           }
           
-          return {
-            ...job,
-            schoolInfo: schoolInfo
-          };
-        });
+          if (schoolId && schoolMap[schoolId]) {
+            schoolInfo = schoolMap[schoolId];
+          } else if (job.schoolName) {
+            // If no school found in map but job has schoolName, use that
+            schoolInfo.name = job.schoolName;
+          } else if (job.applicationEmail) {
+            // Try to extract school name from email
+            const domain = job.applicationEmail.split('@')[1];
+            if (domain) {
+              schoolInfo.name = domain.split('.')[0].replace(/(^\w|\s\w)/g, m => m.toUpperCase()) + ' School';
+            }
+          }
+        }
         
-        setJobsWithSchools(jobsWithSchoolInfo);
-      }
+        return {
+          ...job,
+          schoolInfo: schoolInfo
+        };
+      });
+      
+      setJobsWithSchools(jobsWithSchoolInfo);
+      setDataLoaded(true);
     }
   }, [allUsers, jobs]);
 
@@ -232,6 +273,7 @@ const PostedJobsDashboard = () => {
       
       // Refresh the jobs list
       dispatch(getJobs());
+      dispatch(allUserAction());
       
       // Close the modal if open
       if (isModalOpen) {
@@ -321,9 +363,14 @@ const PostedJobsDashboard = () => {
     dispatch(getJobs())
       .then(() => {
         toast.success('Jobs refreshed successfully!');
+        return dispatch(allUserAction());
+      })
+      .then(() => {
+        toast.success('Data refreshed successfully!');
+        setDataLoaded(true);
       })
       .catch((error) => {
-        toast.error('Error refreshing jobs: ' + error);
+        toast.error('Error refreshing data: ' + error);
       })
       .finally(() => {
         setIsLoading(false);
@@ -335,8 +382,10 @@ const PostedJobsDashboard = () => {
     // No filters applied - show all
     if (!hasAppliedFilters) return true;
     
+    const jobTitleDisplay = getDisplayJobTitle(job);
+    
     const matchesSearch = searchTerm === '' || 
-                         (job.jobTitle?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (jobTitleDisplay.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (job.schoolInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          ((job.category || '').toLowerCase().includes(searchTerm.toLowerCase())) ||
                          ((job.city || '').toLowerCase().includes(searchTerm.toLowerCase()));
@@ -369,9 +418,17 @@ const PostedJobsDashboard = () => {
     setIsModalOpen(false);
   };
 
-  // Handle Edit - redirect to edit page
+  // Handle Edit - Use window.location for reliable navigation
   const handleEditJob = (jobId) => {
-    navigate(`/jobs/${jobId}/edit`);
+    // Close modal if open
+    if (isModalOpen) {
+      setSelectedJob(null);
+      setJobApplications([]);
+      setIsModalOpen(false);
+    }
+    
+    // Use window.location for reliable navigation
+    window.location.href = `/jobs/${jobId}/edit`;
   };
 
   const formatDate = (dateString) => {
@@ -410,7 +467,7 @@ const PostedJobsDashboard = () => {
     return `${currency} ${minSalary} - ${maxSalary}`;
   };
 
-  // --- FIXED DOWNLOAD FUNCTIONS ---
+  // --- DOWNLOAD FUNCTIONS ---
   const downloadFile = async (fileUrl, fileName) => {
     try {
       const token = localStorage.getItem('token');
@@ -435,7 +492,6 @@ const PostedJobsDashboard = () => {
 
   const handleDownloadResume = (resume) => {
     if (resume && resume.path) {
-      // Construct full URL using backend base
       const cleanPath = resume.path.replace(/\\/g, '/');
       const fileUrl = `${API_BASE_URL}/${cleanPath}`;
       const fileName = resume.originalName || resume.filename || 'resume.pdf';
@@ -455,7 +511,7 @@ const PostedJobsDashboard = () => {
       toast.error('Cover letter not available');
     }
   };
-  // --- END OF FIXED DOWNLOAD FUNCTIONS ---
+  // --- END OF DOWNLOAD FUNCTIONS ---
 
   // Get status badge color
   const getStatusBadgeColor = (status) => {
@@ -490,7 +546,7 @@ const PostedJobsDashboard = () => {
   };
 
   // Loading state
-  if (isLoading && !jobs) {
+  if (isLoading && !dataLoaded && !initialLoadDone) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 mt-30 flex items-center justify-center">
         <div className="text-center">
@@ -609,7 +665,8 @@ const PostedJobsDashboard = () => {
                   <option value="all">All Types</option>
                   <option value="Full Time">Full Time</option>
                   <option value="Part Time">Part Time</option>
-                  <option value="Contract">Contract</option>
+                  <option value="Temporary">Temporary</option>
+                  <option value="Internship">Internship</option>
                 </select>
               </div>
             </div>
@@ -701,14 +758,16 @@ const PostedJobsDashboard = () => {
         )}
 
         {/* Error State */}
-        {jobsError && !isLoading && (
+        {jobsError && !isLoading && !dataLoaded && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-8">
             <FaTimes className="text-red-500 mx-auto mb-4" />
             <p className="text-red-600">Error loading jobs: {jobsError}</p>
             <button 
               onClick={() => {
                 setIsLoading(true);
-                dispatch(getJobs()).finally(() => setIsLoading(false));
+                dispatch(getJobs())
+                  .then(() => dispatch(allUserAction()))
+                  .finally(() => setIsLoading(false));
               }}
               className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
             >
@@ -718,7 +777,7 @@ const PostedJobsDashboard = () => {
         )}
 
         {/* Jobs Display */}
-        {!isLoading && !jobsError && (
+        {!isLoading && !jobsError && dataLoaded && (
           <>
             {activeView === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
@@ -732,6 +791,7 @@ const PostedJobsDashboard = () => {
                     onDelete={handleDeleteJob}
                     formatDate={formatDate}
                     formatSalary={formatSalary}
+                    getDisplayJobTitle={getDisplayJobTitle}
                   />
                 ))}
               </div>
@@ -758,6 +818,7 @@ const PostedJobsDashboard = () => {
                           onEdit={handleEditJob}
                           onDelete={handleDeleteJob}
                           formatDate={formatDate}
+                          getDisplayJobTitle={getDisplayJobTitle}
                         />
                       ))}
                     </tbody>
@@ -766,7 +827,7 @@ const PostedJobsDashboard = () => {
               </div>
             )}
 
-            {displayJobs.length === 0 && !isLoading && (
+            {displayJobs.length === 0 && (
               <div className="text-center py-12 bg-white rounded-2xl shadow-lg">
                 <div className="text-gray-400 text-6xl mb-4">💼</div>
                 {hasAppliedFilters ? (
@@ -810,6 +871,8 @@ const PostedJobsDashboard = () => {
           onDownloadCoverLetter={handleDownloadCoverLetter}
           getStatusBadgeColor={getStatusBadgeColor}
           getStatusIcon={getStatusIcon}
+          getDisplayJobTitle={getDisplayJobTitle}
+          getDisplayJobTitleWithSuffix={getDisplayJobTitleWithSuffix}
         />
       )}
     </div>
@@ -845,142 +908,171 @@ const StatCard = ({ title, value, icon, color, loading }) => {
 };
 
 // Job Card Component (Grid View) - responsive
-const JobCard = ({ job, schoolInfo, onView, onEdit, onDelete, formatDate, formatSalary }) => (
-  <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
-    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 sm:p-6 text-white">
-      <div className="flex justify-between items-start gap-2 mb-2">
-        <h3 className="text-lg sm:text-xl font-bold leading-tight break-words">{job.jobTitle || 'Untitled Job'}</h3>
-        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${
+const JobCard = ({ job, schoolInfo, onView, onEdit, onDelete, formatDate, formatSalary, getDisplayJobTitle }) => {
+  // Handle edit click
+  const handleEditClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEdit(job._id);
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 sm:p-6 text-white">
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <h3 className="text-lg sm:text-xl font-bold leading-tight break-words">
+            {getDisplayJobTitle(job)}
+          </h3>
+          <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${
+            job.status === 'active' 
+              ? 'bg-green-500 text-white' 
+              : job.status === 'closed'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-500 text-white'
+          }`}>
+            {job.status || 'draft'}
+          </span>
+        </div>
+        <p className="text-blue-100 text-xs sm:text-sm">{job.category || 'General'}</p>
+        {job.jobTitle === 'Other' && job.jobTitleOther && (
+          <p className="text-blue-200 text-xs mt-1">(Other: {job.jobTitleOther})</p>
+        )}
+        {job.jobTitle !== 'Other' && job.jobTitleOther && (
+          <p className="text-blue-200 text-xs mt-1">({job.jobTitleOther})</p>
+        )}
+      </div>
+
+      <div className="p-4 sm:p-6">
+        <div className="flex items-center mb-4 p-2 sm:p-3 bg-gray-50 rounded-lg">
+          <FaBuilding className="text-blue-500 mr-2 sm:mr-3 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-gray-800 truncate text-sm sm:text-base">{schoolInfo?.name || 'Unknown School'}</p>
+            <p className="text-xs sm:text-sm text-gray-600 truncate">
+              {schoolInfo?.city || job.city || 'N/A'}, {schoolInfo?.country || job.country || 'N/A'}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4">
+          <div className="flex items-center text-gray-600 text-xs sm:text-sm">
+            <FaMoneyBillWave className="mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
+            <span className="truncate">{formatSalary(job.minSalary, job.maxSalary)}</span>
+          </div>
+          <div className="flex items-center text-gray-600 text-xs sm:text-sm">
+            <FaMapMarkerAlt className="mr-1 sm:mr-2 text-red-500 flex-shrink-0" />
+            <span className="truncate">{job.city || job.location || 'N/A'}</span>
+          </div>
+          <div className="flex items-center text-gray-600 text-xs sm:text-sm">
+            <FaCalendar className="mr-1 sm:mr-2 text-purple-500 flex-shrink-0" />
+            <span className="truncate">{job.jobType || 'Full Time'}</span>
+          </div>
+          <div className="flex items-center text-gray-600 text-xs sm:text-sm">
+            <FaUsers className="mr-1 sm:mr-2 text-orange-500 flex-shrink-0" />
+            <span>{job.applicationCount || 0} apps</span>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-gray-600 text-xs sm:text-sm line-clamp-2">{job.jobDescription || 'No description available'}</p>
+        </div>
+
+        <div className="flex justify-between text-xs text-gray-500 mb-4">
+          <span>Posted: {formatDate(job.createdAt)}</span>
+          <span>Deadline: {formatDate(job.applicationDeadline)}</span>
+        </div>
+
+        <div className="flex flex-wrap justify-between gap-2 pt-4 border-t border-gray-100">
+          <div className="flex gap-2">
+            <button 
+              onClick={() => onView(job)}
+              className="flex items-center text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 hover:bg-blue-50 rounded-lg"
+            >
+              <FaEye className="mr-1" />
+              View
+            </button>
+            <button 
+              onClick={handleEditClick}
+              className="flex items-center text-green-600 hover:text-green-800 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 hover:bg-green-50 rounded-lg"
+            >
+              <FaEdit className="mr-1" />
+              Edit
+            </button>
+          </div>
+          <button 
+            onClick={() => onDelete(job._id)}
+            className="flex items-center text-red-600 hover:text-red-800 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 hover:bg-red-50 rounded-lg"
+          >
+            <FaTrash className="mr-1" />
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Job Row Component (List View) - responsive
+const JobRow = ({ job, schoolInfo, onView, onEdit, onDelete, formatDate, getDisplayJobTitle }) => {
+  // Handle edit click
+  const handleEditClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEdit(job._id);
+  };
+
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      <td className="px-4 sm:px-6 py-4">
+        <div>
+          <div className="text-sm font-medium text-gray-900">{getDisplayJobTitle(job)}</div>
+          {job.jobTitle === 'Other' && job.jobTitleOther && (
+            <div className="text-xs text-gray-500">(Other: {job.jobTitleOther})</div>
+          )}
+          <div className="text-xs sm:text-sm text-gray-500">{job.category || 'General'}</div>
+          <div className="text-xs text-gray-400 mt-1">
+            {job.jobType || 'Full Time'} • {job.city || job.location || 'N/A'}
+          </div>
+        </div>
+      </td>
+      <td className="px-4 sm:px-6 py-4">
+        <div className="text-sm text-gray-900 truncate max-w-[150px] sm:max-w-xs">{schoolInfo?.name || 'Unknown School'}</div>
+        <div className="text-xs sm:text-sm text-gray-500 truncate">
+          {schoolInfo?.city || job.city || 'N/A'}
+        </div>
+      </td>
+      <td className="px-4 sm:px-6 py-4">
+        <div className="text-sm text-gray-900">{job.applicationCount || 0} applications</div>
+        <div className="text-xs sm:text-sm text-gray-500">{job.viewCount || 0} views</div>
+      </td>
+      <td className="px-4 sm:px-6 py-4">
+        <span className={`px-2 sm:px-3 py-1 text-xs rounded-full font-medium ${
           job.status === 'active' 
-            ? 'bg-green-500 text-white' 
+            ? 'bg-green-100 text-green-800' 
             : job.status === 'closed'
-            ? 'bg-red-500 text-white'
-            : 'bg-gray-500 text-white'
+            ? 'bg-red-100 text-red-800'
+            : 'bg-gray-100 text-gray-800'
         }`}>
           {job.status || 'draft'}
         </span>
-      </div>
-      <p className="text-blue-100 text-xs sm:text-sm">{job.category || 'General'}</p>
-    </div>
-
-    <div className="p-4 sm:p-6">
-      <div className="flex items-center mb-4 p-2 sm:p-3 bg-gray-50 rounded-lg">
-        <FaBuilding className="text-blue-500 mr-2 sm:mr-3 flex-shrink-0" />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-gray-800 truncate text-sm sm:text-base">{schoolInfo?.name || 'Unknown School'}</p>
-          <p className="text-xs sm:text-sm text-gray-600 truncate">
-            {schoolInfo?.city || job.city || 'N/A'}, {schoolInfo?.country || job.country || 'N/A'}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4">
-        <div className="flex items-center text-gray-600 text-xs sm:text-sm">
-          <FaMoneyBillWave className="mr-1 sm:mr-2 text-green-500 flex-shrink-0" />
-          <span className="truncate">{formatSalary(job.minSalary, job.maxSalary)}</span>
-        </div>
-        <div className="flex items-center text-gray-600 text-xs sm:text-sm">
-          <FaMapMarkerAlt className="mr-1 sm:mr-2 text-red-500 flex-shrink-0" />
-          <span className="truncate">{job.city || job.location || 'N/A'}</span>
-        </div>
-        <div className="flex items-center text-gray-600 text-xs sm:text-sm">
-          <FaCalendar className="mr-1 sm:mr-2 text-purple-500 flex-shrink-0" />
-          <span className="truncate">{job.jobType || 'Full Time'}</span>
-        </div>
-        <div className="flex items-center text-gray-600 text-xs sm:text-sm">
-          <FaUsers className="mr-1 sm:mr-2 text-orange-500 flex-shrink-0" />
-          <span>{job.applicationCount || 0} apps</span>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <p className="text-gray-600 text-xs sm:text-sm line-clamp-2">{job.jobDescription || 'No description available'}</p>
-      </div>
-
-      <div className="flex justify-between text-xs text-gray-500 mb-4">
-        <span>Posted: {formatDate(job.createdAt)}</span>
-        <span>Deadline: {formatDate(job.applicationDeadline)}</span>
-      </div>
-
-      <div className="flex flex-wrap justify-between gap-2 pt-4 border-t border-gray-100">
-        <div className="flex gap-2">
-          <button 
-            onClick={() => onView(job)}
-            className="flex items-center text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 hover:bg-blue-50 rounded-lg"
-          >
-            <FaEye className="mr-1" />
-            View
+      </td>
+      <td className="px-4 sm:px-6 py-4 text-sm font-medium">
+        <div className="flex space-x-3">
+          <button onClick={() => onView(job)} className="text-blue-600 hover:text-blue-900" title="View Details">
+            <FaEye />
           </button>
-          <button 
-            onClick={() => onEdit(job._id)}
-            className="flex items-center text-green-600 hover:text-green-800 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 hover:bg-green-50 rounded-lg"
-          >
-            <FaEdit className="mr-1" />
-            Edit
+          <button onClick={handleEditClick} className="text-green-600 hover:text-green-900" title="Edit Job">
+            <FaEdit />
+          </button>
+          <button onClick={() => onDelete(job._id)} className="text-red-600 hover:text-red-900" title="Delete Job">
+            <FaTrash />
           </button>
         </div>
-        <button 
-          onClick={() => onDelete(job._id)}
-          className="flex items-center text-red-600 hover:text-red-800 text-xs sm:text-sm font-medium px-2 sm:px-3 py-1 hover:bg-red-50 rounded-lg"
-        >
-          <FaTrash className="mr-1" />
-          Delete
-        </button>
-      </div>
-    </div>
-  </div>
-);
+      </td>
+    </tr>
+  );
+};
 
-// Job Row Component (List View) - responsive
-const JobRow = ({ job, schoolInfo, onView, onEdit, onDelete, formatDate }) => (
-  <tr className="hover:bg-gray-50 transition-colors">
-    <td className="px-4 sm:px-6 py-4">
-      <div>
-        <div className="text-sm font-medium text-gray-900">{job.jobTitle || 'Untitled Job'}</div>
-        <div className="text-xs sm:text-sm text-gray-500">{job.category || 'General'}</div>
-        <div className="text-xs text-gray-400 mt-1">
-          {job.jobType || 'Full Time'} • {job.city || job.location || 'N/A'}
-        </div>
-      </div>
-    </td>
-    <td className="px-4 sm:px-6 py-4">
-      <div className="text-sm text-gray-900 truncate max-w-[150px] sm:max-w-xs">{schoolInfo?.name || 'Unknown School'}</div>
-      <div className="text-xs sm:text-sm text-gray-500 truncate">
-        {schoolInfo?.city || job.city || 'N/A'}
-      </div>
-    </td>
-    <td className="px-4 sm:px-6 py-4">
-      <div className="text-sm text-gray-900">{job.applicationCount || 0} applications</div>
-      <div className="text-xs sm:text-sm text-gray-500">{job.viewCount || 0} views</div>
-    </td>
-    <td className="px-4 sm:px-6 py-4">
-      <span className={`px-2 sm:px-3 py-1 text-xs rounded-full font-medium ${
-        job.status === 'active' 
-          ? 'bg-green-100 text-green-800' 
-          : job.status === 'closed'
-          ? 'bg-red-100 text-red-800'
-          : 'bg-gray-100 text-gray-800'
-      }`}>
-        {job.status || 'draft'}
-      </span>
-    </td>
-    <td className="px-4 sm:px-6 py-4 text-sm font-medium">
-      <div className="flex space-x-3">
-        <button onClick={() => onView(job)} className="text-blue-600 hover:text-blue-900" title="View Details">
-          <FaEye />
-        </button>
-        <button onClick={() => onEdit(job._id)} className="text-green-600 hover:text-green-900" title="Edit Job">
-          <FaEdit />
-        </button>
-        <button onClick={() => onDelete(job._id)} className="text-red-600 hover:text-red-900" title="Delete Job">
-          <FaTrash />
-        </button>
-      </div>
-    </td>
-  </tr>
-);
-
-// Job Details Modal Component (responsive)
+// Job Details Modal Component (responsive) - Now shows ALL fields
 const JobDetailsModal = ({ 
   job, 
   schoolInfo,
@@ -996,217 +1088,397 @@ const JobDetailsModal = ({
   onDownloadResume,
   onDownloadCoverLetter,
   getStatusBadgeColor,
-  getStatusIcon
-}) => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50 mt-16 sm:mt-20 overflow-y-auto">
-    <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[75vh] overflow-y-auto">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 sm:p-6 text-white rounded-t-2xl sticky top-0 z-10">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold">{job?.jobTitle || 'Job Details'}</h2>
-            <p className="text-blue-100 text-sm">
-              {job?.category || 'General'} • {schoolInfo?.name || 'Unknown School'}
-            </p>
-          </div>
-          <button 
-            onClick={onClose}
-            className="text-white hover:text-gray-200 text-2xl"
-            disabled={deleteLoading}
-          >
-            ×
-          </button>
-        </div>
-      </div>
+  getStatusIcon,
+  getDisplayJobTitle,
+  getDisplayJobTitleWithSuffix
+}) => {
+  if (!job) return null;
+  
+  const jobTitleDisplay = getDisplayJobTitleWithSuffix(job);
 
-      {loading ? (
-        <div className="p-12 text-center">
-          <FaSpinner className="animate-spin text-4xl text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading job details...</p>
+  // Handle edit click from modal
+  const handleEditClick = () => {
+    onEdit(job._id);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50 mt-16 sm:mt-20 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[75vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 sm:p-6 text-white rounded-t-2xl sticky top-0 z-10">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold">{jobTitleDisplay}</h2>
+              <p className="text-blue-100 text-sm">
+                {job.category || 'General'} • {schoolInfo?.name || 'Unknown School'}
+              </p>
+              {job.jobTitle === 'Other' && job.jobTitleOther && (
+                <p className="text-blue-200 text-xs mt-1">Original: Other ({job.jobTitleOther})</p>
+              )}
+            </div>
+            <button 
+              onClick={onClose}
+              className="text-white hover:text-gray-200 text-2xl"
+              disabled={deleteLoading}
+            >
+              ×
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Left Column - Job Details */}
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-              {/* Basic Info */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Job Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div className="flex items-center text-gray-700">
-                    <FaBuilding className="mr-2 sm:mr-3 text-blue-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm sm:text-base">School</p>
-                      <p className="text-xs sm:text-sm">{schoolInfo?.name || 'Unknown School'}</p>
-                      {schoolInfo?.email && (
-                        <p className="text-xs text-gray-500 truncate">{schoolInfo.email}</p>
+
+        {loading ? (
+          <div className="p-12 text-center">
+            <FaSpinner className="animate-spin text-4xl text-blue-500 mx-auto mb-4" />
+            <p className="text-gray-600">Loading job details...</p>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              {/* Left Column - Job Details */}
+              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+                {/* Basic Info */}
+                <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Job Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="flex items-center text-gray-700">
+                      <FaBuilding className="mr-2 sm:mr-3 text-blue-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">School</p>
+                        <p className="text-xs sm:text-sm">{schoolInfo?.name || 'Unknown School'}</p>
+                        {schoolInfo?.email && (
+                          <p className="text-xs text-gray-500 truncate">{schoolInfo.email}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FaMoneyBillWave className="mr-2 sm:mr-3 text-green-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">Salary</p>
+                        <p className="text-xs sm:text-sm">{formatSalary(job.minSalary, job.maxSalary)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FaMapMarkerAlt className="mr-2 sm:mr-3 text-red-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">Location</p>
+                        <p className="text-xs sm:text-sm">{job.city || job.location || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FaCalendar className="mr-2 sm:mr-3 text-purple-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">Job Type</p>
+                        <p className="text-xs sm:text-sm">{job.jobType || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FaIdCard className="mr-2 sm:mr-3 text-indigo-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">Job ID</p>
+                        <p className="text-xs sm:text-sm">{job.jobId || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FaGlobe className="mr-2 sm:mr-3 text-cyan-500 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">Gender</p>
+                        <p className="text-xs sm:text-sm">{job.gender || 'Not specified'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* School Contact Info */}
+                {(schoolInfo?.email || schoolInfo?.phone) && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                    <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">School Contact Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      {schoolInfo?.email && schoolInfo.email !== 'No email' && (
+                        <div className="flex items-center text-gray-700">
+                          <FaEnvelope className="mr-2 sm:mr-3 text-blue-500 flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-sm sm:text-base">Email</p>
+                            <p className="text-xs sm:text-sm break-all">{schoolInfo.email}</p>
+                          </div>
+                        </div>
+                      )}
+                      {schoolInfo?.phone && schoolInfo.phone !== 'No phone' && (
+                        <div className="flex items-center text-gray-700">
+                          <FaPhone className="mr-2 sm:mr-3 text-green-500 flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-sm sm:text-base">Phone</p>
+                            <p className="text-xs sm:text-sm">{schoolInfo.phone}</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center text-gray-700">
-                    <FaMoneyBillWave className="mr-2 sm:mr-3 text-green-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm sm:text-base">Salary</p>
-                      <p className="text-xs sm:text-sm">{formatSalary(job?.minSalary, job?.maxSalary)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <FaMapMarkerAlt className="mr-2 sm:mr-3 text-red-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm sm:text-base">Location</p>
-                      <p className="text-xs sm:text-sm">{job?.city || job?.location || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <FaCalendar className="mr-2 sm:mr-3 text-purple-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm sm:text-base">Job Type</p>
-                      <p className="text-xs sm:text-sm">{job?.jobType || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                )}
 
-              {/* School Contact Info */}
-              {(schoolInfo?.email || schoolInfo?.phone) && (
+                {/* Additional Information - Now showing ALL fields */}
                 <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">School Contact Information</h3>
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Additional Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    {schoolInfo?.email && schoolInfo.email !== 'No email' && (
-                      <div className="flex items-center text-gray-700">
-                        <FaEnvelope className="mr-2 sm:mr-3 text-blue-500 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-sm sm:text-base">Email</p>
-                          <p className="text-xs sm:text-sm break-all">{schoolInfo.email}</p>
-                        </div>
-                      </div>
-                    )}
-                    {schoolInfo?.phone && schoolInfo.phone !== 'No phone' && (
-                      <div className="flex items-center text-gray-700">
-                        <FaPhone className="mr-2 sm:mr-3 text-green-500 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-sm sm:text-base">Phone</p>
-                          <p className="text-xs sm:text-sm">{schoolInfo.phone}</p>
-                        </div>
-                      </div>
-                    )}
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Category</p>
+                      <p className="text-sm sm:text-base font-medium">{job.category || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Experience Required</p>
+                      <p className="text-sm sm:text-base font-medium">{job.experienceRequired || 'N/A'}</p>
+                      {job.experienceRequired === 'Other' && job.experienceRequiredOther && (
+                        <p className="text-xs text-gray-500">Other: {job.experienceRequiredOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Career Level</p>
+                      <p className="text-sm sm:text-base font-medium">{job.careerLevel || 'N/A'}</p>
+                      {job.careerLevel === 'Other' && job.careerLevelOther && (
+                        <p className="text-xs text-gray-500">Other: {job.careerLevelOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Minimum Qualification</p>
+                      <p className="text-sm sm:text-base font-medium">{job.minQualification || 'N/A'}</p>
+                      {job.minQualification === 'Other' && job.minQualificationOther && (
+                        <p className="text-xs text-gray-500">Other: {job.minQualificationOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Degree Major</p>
+                      <p className="text-sm sm:text-base font-medium">{job.degreeMajor || 'N/A'}</p>
+                      {job.degreeMajor === 'Other' && job.degreeMajorOther && (
+                        <p className="text-xs text-gray-500">Other: {job.degreeMajorOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Preferred Nationality</p>
+                      <p className="text-sm sm:text-base font-medium">{job.preferredNationality || 'N/A'}</p>
+                      {job.preferredNationality === 'Other' && job.preferredNationalityOther && (
+                        <p className="text-xs text-gray-500">Other: {job.preferredNationalityOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Application Email</p>
+                      <p className="text-sm sm:text-base font-medium break-all">{job.applicationEmail || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Salary Paid By</p>
+                      <p className="text-sm sm:text-base font-medium">{job.salaryPaidBy || 'N/A'}</p>
+                      {job.salaryPaidBy === 'Other' && job.salaryPaidByOther && (
+                        <p className="text-xs text-gray-500">Other: {job.salaryPaidByOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Estimated Joining Date</p>
+                      <p className="text-sm sm:text-base font-medium">{formatDate(job.estimatedJoiningDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Application Deadline</p>
+                      <p className="text-sm sm:text-base font-medium">{formatDate(job.applicationDeadline)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Residency Status</p>
+                      <p className="text-sm sm:text-base font-medium">{job.residencyStatus || 'N/A'}</p>
+                      {job.residencyStatus === 'Other' && job.residencyStatusOther && (
+                        <p className="text-xs text-gray-500">Other: {job.residencyStatusOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Status</p>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        job.status === 'active' 
+                          ? 'bg-green-100 text-green-800' 
+                          : job.status === 'closed'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {job.status || 'draft'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Additional Information */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Additional Information</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-600">Experience Required</p>
-                    <p className="text-sm sm:text-base font-medium">{job?.experienceRequired || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-600">Career Level</p>
-                    <p className="text-sm sm:text-base font-medium">{job?.careerLevel || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-600">Minimum Qualification</p>
-                    <p className="text-sm sm:text-base font-medium">{job?.minQualification || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-600">Preferred Nationality</p>
-                    <p className="text-sm sm:text-base font-medium">{job?.preferredNationality || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Job Description</h3>
-                <p className="text-gray-700 text-sm sm:text-base leading-relaxed">{job?.jobDescription || 'No description available'}</p>
-              </div>
-            </div>
-
-            {/* Right Column - Applications */}
-            <div className="lg:col-span-1">
-              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 sticky top-4">
-                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span>Applications ({applications?.length || 0})</span>
-                  {applications?.length > 0 && (
-                    <span className="text-xs sm:text-sm font-normal text-gray-500">
-                      {applications.filter(app => app.status === 'shortlisted').length} shortlisted
-                    </span>
-                  )}
-                </h3>
-                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                  {applications && applications.length > 0 ? (
-                    applications.map((application) => (
-                      <div key={application._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:border-blue-300 transition-colors bg-white">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
-                          <div className="flex items-center">
-                            <FaUserCircle className="text-gray-400 mr-2 sm:mr-3 text-lg sm:text-xl flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-800 text-sm sm:text-base break-words">{application.fullName || 'Unknown Candidate'}</p>
-                              <p className="text-xs sm:text-sm text-gray-600 break-all">{application.email}</p>
-                            </div>
-                          </div>
-                          <span className={`px-2 py-1 text-xs rounded-full flex items-center self-start ${getStatusBadgeColor(application.status)}`}>
-                            {getStatusIcon(application.status)}
-                            <span className="ml-1 capitalize">{application.status}</span>
-                          </span>
-                        </div>
-                        
-                        <div className="mt-2 text-xs sm:text-sm text-gray-600 space-y-1">
-                          <p><strong>Phone:</strong> {application.phoneNumber || 'N/A'}</p>
-                          <p><strong>Location:</strong> {application.currentLocation || 'N/A'}</p>
-                          <p><strong>Applied:</strong> {formatDate(application.appliedDate)}</p>
-                          {application.reviewedAt && (
-                            <p><strong>Reviewed:</strong> {formatDateTime(application.reviewedAt)}</p>
-                          )}
-                        </div>
-                        
-                        {application.additionalInfo && (
-                          <div className="mt-2 p-2 bg-gray-50 rounded text-xs sm:text-sm">
-                            <p className="font-medium text-gray-700">Additional Info:</p>
-                            <p className="text-gray-600 mt-1 break-words">{application.additionalInfo}</p>
-                          </div>
+                {/* Teaching Requirements */}
+                <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                    <FaBookOpen className="text-blue-500" />
+                    Teaching Requirements
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Curriculum Required</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {job.curriculumRequired && job.curriculumRequired.length > 0 ? (
+                          job.curriculumRequired.map((curr, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                              {curr}
+                            </span>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">Not specified</p>
                         )}
-                        
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {application.resume && (
-                            <button 
-                              onClick={() => onDownloadResume(application.resume)}
-                              className="flex items-center text-xs sm:text-sm text-blue-600 hover:text-blue-800 px-2 sm:px-3 py-1 hover:bg-blue-50 rounded border border-blue-200"
-                              title="Download Resume"
-                            >
-                              <FaFilePdf className="mr-1" />
-                              Resume
-                            </button>
-                          )}
-                          {application.coverLetter && (
-                            <button 
-                              onClick={() => onDownloadCoverLetter(application.coverLetter)}
-                              className="flex items-center text-xs sm:text-sm text-green-600 hover:text-green-800 px-2 sm:px-3 py-1 hover:bg-green-50 rounded border border-green-200"
-                              title="Download Cover Letter"
-                            >
-                              <FaFileWord className="mr-1" />
-                              Cover Letter
-                            </button>
-                          )}
-                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-6">
-                      <div className="text-gray-400 text-3xl sm:text-4xl mb-2">📄</div>
-                      <p className="text-gray-500 text-xs sm:text-sm">No applications yet</p>
+                      {job.curriculumRequired?.includes('Other') && job.curriculumOther && (
+                        <p className="text-xs text-gray-500 mt-1">Other: {job.curriculumOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">English Certificate Required</p>
+                      <p className="text-sm sm:text-base font-medium">{job.englishCertRequired || 'Not specified'}</p>
+                      {job.englishCertRequired === 'Other' && job.englishCertOther && (
+                        <p className="text-xs text-gray-500">Other: {job.englishCertOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Teaching License Required</p>
+                      <p className="text-sm sm:text-base font-medium">{job.teachingLicenseRequired || 'Not specified'}</p>
+                      {job.teachingLicenseRequired === 'Other' && job.teachingLicenseOther && (
+                        <p className="text-xs text-gray-500">Other: {job.teachingLicenseOther}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-600">Attested Degree Required</p>
+                      <p className="text-sm sm:text-base font-medium">{job.attestedDegreeRequired || 'Not specified'}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Non-Teaching Roles */}
+                  {job.attestedDegreeRequired === 'Non-Teaching Role' && job.nonTeachingRole && job.nonTeachingRole.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-xs sm:text-sm text-gray-600 mb-2">Non-Teaching Roles</p>
+                      <div className="flex flex-wrap gap-1">
+                        {job.nonTeachingRole.map((role, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
+                            {role}
+                          </span>
+                        ))}
+                        {job.nonTeachingRole?.includes('Other') && job.nonTeachingRoleOther && (
+                          <span className="text-xs text-gray-500 ml-1">Other: {job.nonTeachingRoleOther}</span>
+                        )}
+                      </div>
                     </div>
                   )}
+                </div>
+
+                {/* Description */}
+                <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Job Description</h3>
+                  <p className="text-gray-700 text-sm sm:text-base leading-relaxed">{job.jobDescription || 'No description available'}</p>
+                </div>
+
+                {/* Application Stats */}
+                <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Application Statistics</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="text-center p-3 bg-blue-50 rounded-xl">
+                      <p className="text-2xl font-bold text-blue-600">{job.applicationCount || 0}</p>
+                      <p className="text-xs text-gray-600">Total Applications</p>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded-xl">
+                      <p className="text-2xl font-bold text-green-600">{job.viewCount || 0}</p>
+                      <p className="text-xs text-gray-600">Total Views</p>
+                    </div>
+                    <div className="text-center p-3 bg-yellow-50 rounded-xl">
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {job.applicationCount && job.viewCount && job.viewCount > 0 
+                          ? Math.round((job.applicationCount / job.viewCount) * 100) 
+                          : 0}%
+                      </p>
+                      <p className="text-xs text-gray-600">Conversion Rate</p>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded-xl">
+                      <p className="text-2xl font-bold text-purple-600">{formatDate(job.createdAt)}</p>
+                      <p className="text-xs text-gray-600">Posted Date</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Applications */}
+              <div className="lg:col-span-1">
+                <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 sticky top-4">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span>Applications ({applications?.length || 0})</span>
+                    {applications?.length > 0 && (
+                      <span className="text-xs sm:text-sm font-normal text-gray-500">
+                        {applications.filter(app => app.status === 'shortlisted').length} shortlisted
+                      </span>
+                    )}
+                  </h3>
+                  <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                    {applications && applications.length > 0 ? (
+                      applications.map((application) => (
+                        <div key={application._id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:border-blue-300 transition-colors bg-white">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                            <div className="flex items-center">
+                              <FaUserCircle className="text-gray-400 mr-2 sm:mr-3 text-lg sm:text-xl flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-800 text-sm sm:text-base break-words">{application.fullName || 'Unknown Candidate'}</p>
+                                <p className="text-xs sm:text-sm text-gray-600 break-all">{application.email}</p>
+                              </div>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full flex items-center self-start ${getStatusBadgeColor(application.status)}`}>
+                              {getStatusIcon(application.status)}
+                              <span className="ml-1 capitalize">{application.status}</span>
+                            </span>
+                          </div>
+                          
+                          <div className="mt-2 text-xs sm:text-sm text-gray-600 space-y-1">
+                            <p><strong>Phone:</strong> {application.phoneNumber || 'N/A'}</p>
+                            <p><strong>Location:</strong> {application.currentLocation || 'N/A'}</p>
+                            <p><strong>Applied:</strong> {formatDate(application.appliedDate)}</p>
+                            {application.reviewedAt && (
+                              <p><strong>Reviewed:</strong> {formatDateTime(application.reviewedAt)}</p>
+                            )}
+                          </div>
+                          
+                          {application.additionalInfo && (
+                            <div className="mt-2 p-2 bg-gray-50 rounded text-xs sm:text-sm">
+                              <p className="font-medium text-gray-700">Additional Info:</p>
+                              <p className="text-gray-600 mt-1 break-words">{application.additionalInfo}</p>
+                            </div>
+                          )}
+                          
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {application.resume && (
+                              <button 
+                                onClick={() => onDownloadResume(application.resume)}
+                                className="flex items-center text-xs sm:text-sm text-blue-600 hover:text-blue-800 px-2 sm:px-3 py-1 hover:bg-blue-50 rounded border border-blue-200"
+                                title="Download Resume"
+                              >
+                                <FaFilePdf className="mr-1" />
+                                Resume
+                              </button>
+                            )}
+                            {application.coverLetter && (
+                              <button 
+                                onClick={() => onDownloadCoverLetter(application.coverLetter)}
+                                className="flex items-center text-xs sm:text-sm text-green-600 hover:text-green-800 px-2 sm:px-3 py-1 hover:bg-green-50 rounded border border-green-200"
+                                title="Download Cover Letter"
+                              >
+                                <FaFileWord className="mr-1" />
+                                Cover Letter
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6">
+                        <div className="text-gray-400 text-3xl sm:text-4xl mb-2">📄</div>
+                        <p className="text-gray-500 text-xs sm:text-sm">No applications yet</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default PostedJobsDashboard;

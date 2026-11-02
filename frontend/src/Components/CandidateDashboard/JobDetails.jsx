@@ -12,7 +12,7 @@ import {
   AlertCircle, Loader2, Award as Certificate,
   Building as School, Briefcase as WorkBag
 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import toast from 'react-hot-toast';
 
 const JobDetails = () => {
   const dispatch = useDispatch();
@@ -25,16 +25,17 @@ const JobDetails = () => {
   const [savedJobs, setSavedJobs] = useState(new Set());
   const [showContactInfo, setShowContactInfo] = useState(false);
 
-  // Fetch job details on component mount
   useEffect(() => {
     if (id) {
       dispatch(getJobDetails(id));
     }
-    
+  }, [dispatch, id]);
+
+  useEffect(() => {
     return () => {
       dispatch(clearJobErrors());
     };
-  }, [dispatch, id]);
+  }, []);
 
   // Handle errors
   useEffect(() => {
@@ -42,6 +43,12 @@ const JobDetails = () => {
       toast.error(error);
     }
   }, [error]);
+
+  // NEW: Handle back button with page refresh
+  const handleBackToJobs = () => {
+    // Force page refresh and navigate to jobs dashboard
+    window.location.href = '/applied-jobs';
+  };
 
   const toggleSaveJob = () => {
     if (!job?._id) return;
@@ -105,6 +112,34 @@ const JobDetails = () => {
     return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   };
 
+  // Helper function to get display value for curriculum
+  const getCurriculumDisplay = (curriculum) => {
+    if (!curriculum) return 'Not specified';
+    // If it's "Other", return the job's curriculumOther value if available
+    if (curriculum === 'Other' && job?.curriculumOther) {
+      return job.curriculumOther;
+    }
+    // If it's an array, join them
+    if (Array.isArray(curriculum)) {
+      return curriculum.map(item => {
+        if (item === 'Other' && job?.curriculumOther) {
+          return job.curriculumOther;
+        }
+        return item;
+      }).join(', ');
+    }
+    return curriculum;
+  };
+
+  // Helper function to get display value for any "Other" field
+  const getDisplayValue = (value, otherValue) => {
+    if (!value) return 'Not specified';
+    if (value === 'Other' && otherValue) {
+      return otherValue;
+    }
+    return value;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen mt-30 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
@@ -124,7 +159,7 @@ const JobDetails = () => {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Job Not Found</h2>
           <p className="text-gray-600 mb-6">The job you're looking for doesn't exist or has been removed.</p>
           <button
-            onClick={() => navigate('/jobs-dashboard')}
+            onClick={() => window.location.href = '/applied-jobs'}
             className="px-6 py-3 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
           >
             Browse All Jobs
@@ -143,7 +178,7 @@ const JobDetails = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
                 <button
-                  onClick={() => navigate(-1)}
+                  onClick={handleBackToJobs}
                   className="flex items-center gap-2 px-4 py-2 text-[#0077BB] hover:text-[#005588] transition-colors duration-200"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -228,6 +263,7 @@ const JobDetails = () => {
           </div>
         </div>
 
+        {/* Rest of your component */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Column - Job Details */}
           <div className="lg:col-span-3 space-y-8">
@@ -280,13 +316,15 @@ const JobDetails = () => {
                       <GraduationCap className="w-5 h-5" />
                       Minimum Qualification
                     </h3>
-                    <p className="text-gray-700">{job.minQualification || 'Not specified'}</p>
+                    <p className="text-gray-700">
+                      {getDisplayValue(job.minQualification, job.minQualificationOther)}
+                    </p>
                     {job.degreeMajor && (
                       <p className="text-gray-600 text-sm mt-1">Major: {job.degreeMajor}</p>
                     )}
                   </div>
 
-                  {/* Curriculum */}
+                  {/* Curriculum - FIXED */}
                   {job.curriculumRequired && job.curriculumRequired.length > 0 && (
                     <div className="p-4 bg-purple-50 rounded-xl border-l-4 border-purple-500">
                       <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
@@ -300,12 +338,16 @@ const JobDetails = () => {
                               key={index}
                               className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium"
                             >
-                              {curriculum}
+                              {curriculum === 'Other' && job.curriculumOther 
+                                ? job.curriculumOther 
+                                : curriculum}
                             </span>
                           ))
                         ) : (
                           <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
-                            {job.curriculumRequired}
+                            {job.curriculumRequired === 'Other' && job.curriculumOther 
+                              ? job.curriculumOther 
+                              : job.curriculumRequired}
                           </span>
                         )}
                       </div>
@@ -323,7 +365,9 @@ const JobDetails = () => {
                           <Certificate className="w-4 h-4" />
                           English Certification
                         </h4>
-                        <p className="text-gray-700">{job.englishCertRequired}</p>
+                        <p className="text-gray-700">
+                          {getDisplayValue(job.englishCertRequired, job.englishCertRequiredOther)}
+                        </p>
                       </div>
                     )}
 
@@ -333,7 +377,9 @@ const JobDetails = () => {
                           <Shield className="w-4 h-4" />
                           Teaching License
                         </h4>
-                        <p className="text-gray-700">{job.teachingLicenseRequired}</p>
+                        <p className="text-gray-700">
+                          {getDisplayValue(job.teachingLicenseRequired, job.teachingLicenseRequiredOther)}
+                        </p>
                       </div>
                     )}
 
@@ -353,7 +399,9 @@ const JobDetails = () => {
                     {job.category && (
                       <div className="p-3 bg-gray-50 rounded-xl">
                         <p className="text-sm text-gray-600">Category</p>
-                        <p className="font-medium text-gray-800">{job.category}</p>
+                        <p className="font-medium text-gray-800">
+                          {getDisplayValue(job.category, job.categoryOther)}
+                        </p>
                       </div>
                     )}
                     
@@ -397,8 +445,12 @@ const JobDetails = () => {
                   <p className="text-sm text-gray-600">Curriculum</p>
                   <p className="font-medium text-gray-800">
                     {Array.isArray(job.curriculumRequired) 
-                      ? job.curriculumRequired.join(', ') 
-                      : job.curriculumRequired || 'International Curriculum'}
+                      ? job.curriculumRequired.map(c => 
+                          c === 'Other' && job.curriculumOther ? job.curriculumOther : c
+                        ).join(', ')
+                      : (job.curriculumRequired === 'Other' && job.curriculumOther 
+                          ? job.curriculumOther 
+                          : job.curriculumRequired || 'International Curriculum')}
                   </p>
                 </div>
               </div>
@@ -470,7 +522,9 @@ const JobDetails = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Qualification</p>
-                    <p className="font-semibold text-gray-800">{job.minQualification || 'Not specified'}</p>
+                    <p className="font-semibold text-gray-800">
+                      {getDisplayValue(job.minQualification, job.minQualificationOther)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -499,12 +553,8 @@ const JobDetails = () => {
                     {job.jobApplyType === 'By Email' ? 'Apply via Email' : 'Online Application'}
                   </p>
                 </div>
-                
-             
               </div>
             </div>
-
-          
 
             {/* Job ID & Status */}
             <div className="bg-white rounded-2xl shadow-lg p-6">

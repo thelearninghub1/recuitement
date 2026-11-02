@@ -238,7 +238,7 @@ export default function SchoolLogin() {
                 Find Your Perfect <span className="text-[#0077BB]">Teaching</span> Team
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed">
-                Connect with verified educators and build your dream teaching staff with Saudi Arabia's leading educational staffing platform.
+                Connect with verified educators and build your dream teaching staff with Middle East's leading educational staffing platform.
               </p>
             </div>
           </div>
@@ -441,7 +441,7 @@ export default function SchoolLogin() {
                 {/* Register Link */}
                 <div className="text-center pt-6 border-t border-gray-200">
                   <p className="text-sm text-gray-600">
-                    New to Apex Staffing?{" "}
+                    New to The Teaching Path?{" "}
                     <Link
                       to="/school-register"
                       className="font-semibold text-[#0077BB] hover:text-[#00AEEF] transition-colors duration-200"

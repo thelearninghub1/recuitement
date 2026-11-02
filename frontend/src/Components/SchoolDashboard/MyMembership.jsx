@@ -69,6 +69,37 @@ const MyMembership = () => {
     fetchMembershipData();
   }, []);
 
+
+  // Add this useEffect after the fetchMembershipData useEffect
+useEffect(() => {
+  // Check if we have subscription data
+  if (subscription) {
+    const status = subscription.status?.toLowerCase() || '';
+    
+    // Check if status is approved/active
+    const isApproved = status === 'active' || 
+                      status === 'approved' || 
+                      status === 'confirmed' ||
+                      status === 'completed';
+    
+    // Check if status is denied/expired
+    const isDenied = status === 'denied' || 
+                    status === 'expired' || 
+                    status === 'rejected' ||
+                    status === 'cancelled';
+    
+    // If approved or denied, CLEAR localStorage
+    if (isApproved || isDenied) {
+      const pendingSubmission = localStorage.getItem('pendingPaymentSubmission');
+      if (pendingSubmission) {
+        localStorage.removeItem('pendingPaymentSubmission');
+        localStorage.removeItem('selectedMembershipPlan');
+        console.log('🗑️ Cleared pendingPaymentSubmission from localStorage');
+      }
+    }
+  }
+}, [subscription]); // Runs whenever subscription data changes
+
   // Update local stats when Redux data changes
   useEffect(() => {
     if (subscriptionUsage) {
@@ -200,6 +231,17 @@ const MyMembership = () => {
   const daysRemaining = getDaysRemaining();
   const StatusBadge = membership ? getStatusBadge(membership.status) : null;
 
+  // Calculate total amount paid from all approved payments
+  const totalAmountPaid = paymentHistory.reduce((total, payment) => {
+    if (payment.status === 'approved' || payment.status === 'confirmed') {
+      return total + payment.amount;
+    }
+    return total;
+  }, 0);
+
+  // Get currency from first payment or default to 'SAR'
+  const currency = paymentHistory.length > 0 ? paymentHistory[0].currency : 'SAR';
+
   if (loading && !subscription) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -292,8 +334,12 @@ const MyMembership = () => {
                   </div>
                   <div className="bg-amber-50 rounded-xl p-4">
                     <p className="text-sm text-gray-600 mb-1">Amount Paid</p>
-                    <p className="text-xl font-bold text-gray-800">{membership.currency} {membership.amount?.toLocaleString() || 'N/A'}</p>
-                    <p className="text-xs text-gray-500 capitalize">{membership.duration}</p>
+                    {/* Show total lifetime payment if available */}
+                    {totalAmountPaid > 0 && (
+                      <p className="text-lg font-semibold text-gray-800 mt-1">
+                        Total Lifetime: {currency} {totalAmountPaid.toLocaleString()}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -332,55 +378,7 @@ const MyMembership = () => {
 
             {/* Usage Statistics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Job Posting Stats */}
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <FaBriefcase className="text-blue-600" /> Job Posting Usage
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Jobs Posted</span>
-                      <span className="font-semibold">
-                        {checkLoading ? '...' : `${localUsageStats.jobsPosted} / ${localUsageStats.totalJobsLimit}`}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 rounded-full h-2 transition-all"
-                        style={{ width: `${(localUsageStats.jobsPosted / (localUsageStats.totalJobsLimit || 1)) * 100}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {checkLoading ? 'Checking...' : `${localUsageStats.remainingJobs} jobs remaining`}
-                    </p>
-                  </div>
-                  <div className="bg-blue-50 rounded-xl p-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Jobs Posted This Month</span>
-                      <span className="font-bold text-blue-600">{localUsageStats.jobsThisMonth}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Can Post Job Status */}
-                  <div className={`rounded-xl p-3 ${canPost ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Can Post New Job?</span>
-                      {checkLoading ? (
-                        <FaSpinner className="animate-spin text-blue-600" />
-                      ) : canPost ? (
-                        <span className="text-green-600 font-semibold flex items-center gap-1">
-                          <FaCheckCircle /> Yes ({localUsageStats.remainingJobs} remaining)
-                        </span>
-                      ) : (
-                        <span className="text-red-600 font-semibold flex items-center gap-1">
-                          <FaTimes /> {cannotPostReason || 'No'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+          
 
               {/* CV Download Stats */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -416,9 +414,20 @@ const MyMembership = () => {
             {/* Payment History */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-blue-50 border-b">
-                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                  <FaFileInvoice className="text-green-600" /> Payment History
-                </h3>
+                <div className="flex justify-between items-center flex-wrap gap-4">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <FaFileInvoice className="text-green-600" /> Payment History
+                  </h3>
+                  {/* Total Amount Paid Display */}
+                  {paymentHistory.length > 0 && (
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-2 rounded-lg border border-green-200 shadow-sm">
+                      <span className="text-sm text-gray-600">Total Paid: </span>
+                      <span className="text-lg font-bold text-green-700">
+                        {currency} {totalAmountPaid.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -472,6 +481,28 @@ const MyMembership = () => {
                   </tbody>
                 </table>
               </div>
+              
+              {/* Payment Summary Footer */}
+              {paymentHistory.length > 0 && (
+                <div className="px-6 py-4 bg-gray-50 border-t">
+                  <div className="flex flex-wrap justify-between items-center gap-4">
+                    <div className="text-sm text-gray-600">
+                      Total Transactions: <span className="font-semibold">{paymentHistory.length}</span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Total Amount Paid: <span className="text-lg font-bold text-green-700">
+                        {currency} {totalAmountPaid.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Average Payment: <span className="font-semibold text-gray-800">
+                        {currency} {(totalAmountPaid / paymentHistory.length).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {paymentHistory.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-gray-500">No payment history found</p>
@@ -487,7 +518,7 @@ const MyMembership = () => {
                   <p className="text-sm text-gray-600">Contact our support team for any questions or issues</p>
                 </div>
                 <button
-                  onClick={() => window.open('mailto:support@recruitify.com')}
+                  onClick={() => window.open('mailto:info@theteachingpath.com')}
                   className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                 >
                   Contact Support
@@ -599,14 +630,12 @@ const MyMembership = () => {
 
               {/* Action Buttons */}
               <div className="flex gap-3 justify-end">
-               
                 <button
                   onClick={handlePrintReceipt}
                   className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
                 >
                   <FaPrint /> Print
                 </button>
-               
               </div>
             </div>
           </div>

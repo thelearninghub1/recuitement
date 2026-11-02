@@ -50,6 +50,7 @@ import ScrollToTop from './ScrollToTop';
 import WhatsApp from './Components/Layout/WhatsApp';
 import MembershipDashboard from './Components/Admin/Membership/MembershipDashboard';
 import PaymentDashboard from './Components/Admin/PaymentDashboard';
+import TeachersDatabase from './Components/SchoolDashboard/TeachersDatabase';
 
 
 
@@ -69,20 +70,18 @@ function App() {
     }
   }, [dispatch, userLoaded]);
 
-  // Show loading while checking authentication
-  if (!userLoaded || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+if (!userLoaded) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading...</p>
       </div>
-    );
-  }
-
+    </div>
+  );
+}
   return ( 
-    <Router>
+    <Router> 
       <ScrollToTop/>
       <Header/>
       <WhatsApp />
@@ -220,6 +219,14 @@ function App() {
           element={
             isAuthenticatedUser && user?.role === "school" ? 
             <SchoolDashboard/> : 
+            <SchoolLogin/>
+          } 
+        />
+           <Route 
+          path='/teachers-database' 
+          element={
+            isAuthenticatedUser && user?.role === "school" ? 
+            <TeachersDatabase/> : 
             <SchoolLogin/>
           } 
         />

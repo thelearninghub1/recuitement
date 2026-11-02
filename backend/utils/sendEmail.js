@@ -26,12 +26,12 @@ exports.sendEmailCandidates = async (options) => {
   const transporter = nodemailer.createTransport({
     host: 'smtp.zoho.com',
     port: 465,
-    secure: true,
+    secure: true, 
     auth: {
       user: process.env.SMTP_EMAIL_CANDIDATE,
       pass: process.env.SMTP_PASSWORD_CANDIDATE,
     },
-  });
+  }); 
 
   const mailOptions = {
     from: process.env.SMTP_FROM_CANDIDATE || `TheTeachingPath Careers <${process.env.SMTP_EMAIL_CANDIDATE}>`,

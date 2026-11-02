@@ -17,7 +17,6 @@ const jobSchema = new mongoose.Schema({
   jobTitleOther: String,
   gender: {
     type: String,
-    enum: ['Male', 'Female', ''],
     default: ''
   },
   category: {

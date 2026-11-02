@@ -165,17 +165,7 @@ export default function ResetPassword() {
         >
           {/* Brand Section */}
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] rounded-2xl flex items-center justify-center shadow-lg">
-                <Building className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 bg-gradient-to-r from-[#0077BB] to-[#00AEEF] bg-clip-text text-transparent">
-                  Apex Staffing
-                </h1>
-                <p className="text-lg text-gray-600">Network</p>
-              </div>
-            </div>
+         
             
             <div className="space-y-4">
               <h2 className="text-3xl font-bold text-gray-900 leading-tight">
